@@ -134,6 +134,28 @@ fn app_event_rejects_window_filter_immediately() {
 }
 
 #[test]
+fn window_id_without_an_event_is_refused_instead_of_ignored() {
+    let result = validate_wait_mode(&args(WaitModeArgs {
+        text: Some("77".into()),
+        window_id: Some("no-such-window".into()),
+        ..mode()
+    }));
+
+    assert_eq!(result.unwrap_err().code(), "INVALID_ARGS");
+}
+
+#[test]
+fn window_id_narrows_a_window_event_wait() {
+    let result = validate_wait_mode(&args(WaitModeArgs {
+        event: Some("window-closed".into()),
+        window_id: Some("w-1".into()),
+        ..mode()
+    }));
+
+    assert!(result.is_ok(), "{result:?}");
+}
+
+#[test]
 fn surface_event_requires_app_scope() {
     let result = validate_wait_mode(&args(WaitModeArgs {
         event: Some("surface-appeared".into()),

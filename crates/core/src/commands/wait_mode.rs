@@ -150,6 +150,12 @@ pub(crate) fn ambiguous_wait_mode() -> AppError {
 
 fn validate_event_filters(args: &WaitArgs) -> Result<(), AppError> {
     let Some(token) = args.mode.event.as_deref() else {
+        if args.mode.window_id.is_some() {
+            return Err(AppError::invalid_input_with_suggestion(
+                "--window-id narrows an --event wait only",
+                "Remove --window-id, or add --event window-opened, window-closed or focus-changed. Use --window <title> to wait for a window by title.",
+            ));
+        }
         return Ok(());
     };
     let event = crate::commands::wait_event::parse_event_kind(token)?;

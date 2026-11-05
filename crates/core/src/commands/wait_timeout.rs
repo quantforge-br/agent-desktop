@@ -28,6 +28,11 @@ pub(crate) fn menu(mut error: AdapterError, timeout_ms: u64) -> AppError {
     AppError::Adapter(error)
 }
 
+/// Guidance for a wait whose condition never held. A wait that expires says
+/// nothing about the target app being busy, so the generic timeout advice is
+/// replaced by one that points at the condition itself.
+const WAIT_TIMEOUT_SUGGESTION: &str = "The condition did not hold before the deadline. Check that the target exists (list-apps, list-windows, snapshot) and that the title, text or selector is spelled as shown there, then retry or raise --timeout";
+
 /// Builds the wait-loop TIMEOUT error. Every payload carries
 /// `kind: "wait_timeout"` so agents can discriminate it from the chain
 /// deadline TIMEOUT schema (`kind: "chain_deadline"`) without sniffing
@@ -35,7 +40,9 @@ pub(crate) fn menu(mut error: AdapterError, timeout_ms: u64) -> AppError {
 fn timeout_err(message: String, mut details: Value) -> Result<Value, AppError> {
     details["kind"] = json!("wait_timeout");
     Err(AppError::Adapter(
-        AdapterError::timeout(message).with_details(details),
+        AdapterError::timeout(message)
+            .with_suggestion(WAIT_TIMEOUT_SUGGESTION)
+            .with_details(details),
     ))
 }
 

@@ -15,3 +15,14 @@ fn text_timeout_reports_the_char_count_and_never_the_raw_text() {
     assert_eq!(details["predicate"], "text");
     assert_eq!(details["text_chars"], marker.chars().count());
 }
+
+#[test]
+fn a_missing_window_is_not_blamed_on_a_busy_app() {
+    let AppError::Adapter(error) = window("Nope", None, 50, None, None).unwrap_err() else {
+        panic!("adapter error expected")
+    };
+
+    let suggestion = error.suggestion.expect("timeout suggestion");
+    assert!(!suggestion.contains("busy or unresponsive"), "{suggestion}");
+    assert!(suggestion.contains("list-windows"), "{suggestion}");
+}
