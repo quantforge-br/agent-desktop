@@ -183,9 +183,10 @@ fn live_evidence(live: &LiveElement) -> LocatorEvidence {
 
 fn stale_live_element(message: &'static str) -> AdapterError {
     AdapterError::new(ErrorCode::StaleRef, message)
-        .with_suggestion(
-            "Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot; FFI: ad_snapshot then ad_execute_by_ref with the returned qualified @<snapshot_id>:eN ref)",
-        )
-        .with_details(serde_json::json!({ "retryable": true }))
+        .with_suggestion("Re-run snapshot to obtain fresh refs, then retry with the new ref")
+        .with_details(serde_json::json!({
+            "kind": "resolved_element_changed",
+            "retryable": true,
+        }))
         .with_disposition(DeliverySemantics::not_delivered())
 }

@@ -30,6 +30,7 @@
 * `clipboard-set` with no text, `--image` or `--file-url` fails with `INVALID_ARGS` instead of emptying the clipboard. Use `clipboard-clear` to empty it; an explicit `""` still writes empty text.
 * A session started with `--cursor` no longer writes a WARN line to stderr on every action when the platform cannot draw the overlay, as on Wayland. `--verbose` still shows it.
 * `STALE_REF` for a ref that is not in its snapshot carries `details.kind: saved_ref_absent`, and the suggestions of `STALE_REF`, `SNAPSHOT_NOT_FOUND`, `NOTIFICATION_NOT_FOUND` and `POLICY_DENIED` name CLI commands instead of FFI functions.
+* A refusal that waiting cannot fix (`POLICY_DENIED`, `ACTION_NOT_SUPPORTED`) no longer lists a `stable` check it never waited for.
 
 ## [1.1.0](https://github.com/vercel-labs/agent-desktop/compare/v1.0.2...v1.1.0) (2026-11-02)
 

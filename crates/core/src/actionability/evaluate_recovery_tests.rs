@@ -85,3 +85,40 @@ fn unsupported_text_write_names_typing_for_the_actual_mode_and_a_paste_fallback(
         }
     }
 }
+
+#[test]
+fn a_terminal_refusal_does_not_claim_a_stability_wait() {
+    for (action, policy, code) in [
+        (
+            Action::RightClick,
+            InteractionPolicy::headless(),
+            ErrorCode::PolicyDenied,
+        ),
+        (
+            Action::SetFocus,
+            InteractionPolicy::headless(),
+            ErrorCode::ActionNotSupported,
+        ),
+        (
+            Action::Clear,
+            InteractionPolicy::headless(),
+            ErrorCode::ActionNotSupported,
+        ),
+    ] {
+        let error = refusal(action.clone(), policy);
+        assert_eq!(error.code, code, "{action:?}");
+        assert!(!error.message.contains("stable"), "{}", error.message);
+        let details = error.details.unwrap();
+        let checks = details["checks"].as_array().unwrap();
+        assert!(
+            checks.iter().all(|check| check["check"] != "stable"),
+            "{action:?}: {checks:?}"
+        );
+        assert!(
+            checks
+                .iter()
+                .any(|check| check["status"] == "fail" || check["status"] == "unknown"),
+            "{action:?}: the terminal check stays in the report"
+        );
+    }
+}

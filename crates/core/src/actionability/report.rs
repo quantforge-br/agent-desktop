@@ -59,6 +59,19 @@ impl ActionabilityReport {
             && blocking.next().is_none()
     }
 
+    /// Drops a blocking `stable` check from a report that already carries a
+    /// terminal refusal. Stability is a wait for the target to settle, and a
+    /// terminal refusal (unsupported action, denied policy) is decided before
+    /// any settling matters, so listing `stable` as a failure would claim a
+    /// wait that never applied.
+    pub(crate) fn without_stability_behind_terminal_refusal(mut self) -> Self {
+        if self.terminal_code().is_some() {
+            self.checks
+                .retain(|check| check.check != "stable" || !is_blocking(check));
+        }
+        self
+    }
+
     pub(crate) fn failure_reasons(&self) -> String {
         self.checks
             .iter()

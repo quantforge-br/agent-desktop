@@ -214,6 +214,7 @@ fn finish(
     if report.actionable {
         return Ok(report);
     }
+    let report = report.without_stability_behind_terminal_refusal();
     let code = report.terminal_code().unwrap_or(ErrorCode::ActionFailed);
     let suggestion = if code == ErrorCode::ActionFailed {
         "Wait for the target to become actionable, refresh the snapshot, or use an explicit physical/focus command if intended."
