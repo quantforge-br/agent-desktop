@@ -66,7 +66,7 @@ pub(crate) fn check(
     let handle = NativeHandle::null();
     let adapter = TestHitAdapter;
     check_with_stability(
-        StabilityExpectation::permissive(entry.geometry.bounds_hash),
+        StabilityExpectation::permissive(entry.geometry.screen_bounds_hash()),
         &evidence,
         request,
         Some((&handle, &adapter)),

@@ -34,7 +34,7 @@ pub(crate) fn execute_poll_loop(
         expected_bounds_hash: context
             .entry
             .geometry
-            .bounds_hash
+            .screen_bounds_hash()
             .filter(|_| request.policy == crate::InteractionPolicy::headless()),
         ..Default::default()
     };

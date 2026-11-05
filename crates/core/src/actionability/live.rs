@@ -43,7 +43,7 @@ pub(crate) fn check_live(
             deadline,
         },
         request,
-        StabilityExpectation::permissive(entry.geometry.bounds_hash),
+        StabilityExpectation::permissive(entry.geometry.screen_bounds_hash()),
     )
 }
 

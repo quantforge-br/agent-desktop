@@ -270,7 +270,7 @@ fn stable_preflight(
     request: &ActionRequest,
 ) -> Result<ActionabilityPreflight, AppError> {
     let stability =
-        actionability::StabilityExpectation::permissive(target.entry.geometry.bounds_hash);
+        actionability::StabilityExpectation::permissive(target.entry.geometry.screen_bounds_hash());
     let report = ref_action_actionability::check_report_with_trace(
         target,
         request,
@@ -316,7 +316,7 @@ pub(crate) fn execute_resolved(
         target.deadline,
     );
     let stability =
-        actionability::StabilityExpectation::permissive(target.entry.geometry.bounds_hash);
+        actionability::StabilityExpectation::permissive(target.entry.geometry.screen_bounds_hash());
     preflight_resolved(&target, &request, stability)?;
     let result = ref_action_single::dispatch_resolved(target.target, request, lease);
     finish_artifacts(target.target, &pre);
