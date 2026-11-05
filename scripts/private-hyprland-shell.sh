@@ -129,11 +129,12 @@ cleanup() {
     sleep 0.1
   done
   for mount in "$rt/doc" "$rt/gvfs"; do
-    fusermount -u "$mount" 2>/dev/null || true
+    fusermount3 -u "$mount" 2>/dev/null || fusermount -u "$mount" 2>/dev/null || true
   done
   case "$rt" in
     "$base"/rt.?*)
-      [ ! -d "$rt" ] || rm -rf -- "$rt" ;;
+      # dms run copies its shell files into the runtime directory read-only.
+      [ ! -d "$rt" ] || { chmod -R u+w -- "$rt" 2>/dev/null; rm -rf -- "$rt"; } ;;
   esac
 }
 trap cleanup EXIT
