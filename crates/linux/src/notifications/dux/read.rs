@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
+use agent_desktop_core::{AdapterError, Deadline, DeliverySemantics, ErrorCode};
 use serde_json::json;
 
 use super::center::Center;
@@ -100,18 +100,23 @@ pub(crate) fn read_expanded(
     Ok(center)
 }
 
+/// The refusal for a center that lays out fewer cards than its header counts
+/// after every retry: the shell builds cards only for the part of its list
+/// on screen, and nothing in the tree scrolls that list.
 fn incomplete(center: &Center) -> AdapterError {
     AdapterError::new(
         ErrorCode::Internal,
-        "The notification center could only be read in part",
+        "The notification center lays out only the cards that fit on screen, so it could be read only in part",
     )
     .with_suggestion(
-        "Retry the command; the center shows a limited number of notifications per application",
+        "Dismiss notifications that are no longer needed, for example with 'dismiss-all-notifications --app <app>', until the rest fit, then retry; a retry alone reads the same part",
     )
     .with_details(json!({
+        "kind": "center_overflow",
         "expected": center.expected,
         "read": center.cards.len(),
     }))
+    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 /// `read_expanded` read again while the tree settles, until it holds every
