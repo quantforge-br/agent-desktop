@@ -45,7 +45,7 @@ impl Pointer for Counting {
         Ok(vec![ActionStep::succeeded("XTEST.click")])
     }
 
-    fn escape(&self) -> Result<Vec<ActionStep>, AdapterError> {
+    fn press(&self, _: &str) -> Result<Vec<ActionStep>, AdapterError> {
         Ok(Vec::new())
     }
 }

@@ -102,21 +102,71 @@ fn confirm(
     Err(error)
 }
 
-fn require_qt_popup_backend(
+/// Whether a Qt process draws its popups as native Wayland surfaces:
+/// `Some(false)` when it owns X11 toplevels, `None` when that cannot be told.
+fn native_qt_backend(
     display_configured: bool,
     windows: ControlRead<Vec<Toplevel>>,
-) -> Result<(), AdapterError> {
-    let native = match windows {
-        ControlRead::Ready(windows) if !windows.is_empty() => return Ok(()),
-        ControlRead::Ready(_) => true,
-        ControlRead::NotX11 if !display_configured => true,
-        _ => false,
+) -> Option<bool> {
+    match windows {
+        ControlRead::Ready(windows) if !windows.is_empty() => Some(false),
+        ControlRead::Ready(_) => Some(true),
+        ControlRead::NotX11 if !display_configured => Some(true),
+        _ => None,
+    }
+}
+
+fn native_qt_of(target: &Target<'_>) -> Option<bool> {
+    native_qt_backend(
+        crate::system::display::display_env::DisplayEnv::from_process()
+            .display
+            .is_some(),
+        crate::system::x11::control::toplevels_of(target.element.pid(), target.deadline),
+    )
+}
+
+/// Whether `target`, an element of a Qt application, shows its popups as
+/// native Wayland surfaces, which place themselves where no other client
+/// can read.
+pub(super) fn shows_native_qt_popups(target: &Target<'_>) -> bool {
+    use crate::system::display::display_server::{DisplayServer, session_server};
+    matches!(session_server(), DisplayServer::Wayland) && native_qt_of(target) == Some(true)
+}
+
+/// The refusal for a native Wayland Qt popup opener when the compositor
+/// offers a pointer a headed request can click with.
+fn pointer_required() -> AdapterError {
+    AdapterError::policy_denied_for_policy(
+        "Opening this native Wayland Qt popup takes a pointer click, which the interaction policy does not allow",
+        agent_desktop_core::InteractionPolicy::headless(),
+    )
+    .with_suggestion(
+        "Run the command again with --headed: Qt shows this popup only for a user input serial, so a pointer click opens it.",
+    )
+    .with_details(serde_json::json!({
+        "kind": "pointer_required",
+        "cause": NEEDS_INPUT_SERIAL,
+        "physical_delivery_started": false,
+    }))
+    .with_disposition(DeliverySemantics::not_delivered())
+}
+
+pub(super) const NEEDS_INPUT_SERIAL: &str = "native_popup_requires_input";
+
+fn require_qt_popup_backend(native: Option<bool>, pointer: bool) -> Result<(), AdapterError> {
+    let native = match native {
+        Some(false) => return Ok(()),
+        Some(true) => true,
+        None => false,
     };
+    if native && pointer {
+        return Err(pointer_required());
+    }
     let (code, message, kind) = if native {
         (
             ErrorCode::ActionNotSupported,
             "Native Wayland Qt popup opening needs a user input serial; no input was sent",
-            "native_popup_requires_input",
+            NEEDS_INPUT_SERIAL,
         )
     } else {
         (
@@ -151,10 +201,8 @@ pub(super) fn run(
         )) == ToolkitKind::Qt
     {
         require_qt_popup_backend(
-            crate::system::display::display_env::DisplayEnv::from_process()
-                .display
-                .is_some(),
-            crate::system::x11::control::toplevels_of(target.element.pid(), target.deadline),
+            native_qt_of(target),
+            crate::input::wayland::virtual_input::virtual_send::compositor().is_some(),
         )?;
     }
     let Some(opener) = opener(target, view)? else {

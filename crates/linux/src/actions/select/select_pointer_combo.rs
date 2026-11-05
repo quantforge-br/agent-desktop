@@ -177,7 +177,7 @@ fn close_popup(
     if new_list(choices, closed).is_none() {
         return true;
     }
-    let sent = pointer.escape().is_ok();
+    let sent = pointer.press("escape").is_ok();
     sent && wait_closed(choices, closed, deadline)
 }
 

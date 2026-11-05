@@ -58,6 +58,23 @@ fn read_expanded(view: &NodeView) -> Flag {
     Flag::of(view.state(EXPANDED))
 }
 
+/// Waits, within the popup budget, for `target` to read expanded, and says
+/// whether it did.
+pub(super) fn await_expanded(target: &Target<'_>) -> bool {
+    poll_until(
+        target.deadline,
+        POPUP_SETTLE,
+        POPUP_STEP,
+        || {
+            target
+                .view()
+                .map_or(Flag::Unknown, |after| read_expanded(&after))
+        },
+        |flag| flag.is_wanted(true),
+    )
+    .is_wanted(true)
+}
+
 pub(crate) fn set_expanded(
     target: &Target<'_>,
     expanded: bool,

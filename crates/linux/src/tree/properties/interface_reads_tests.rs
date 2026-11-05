@@ -1,4 +1,4 @@
-use super::{ACTION_INTERFACE, skipped_without};
+use super::{ACTION_INTERFACE, machine_name, skipped_without};
 use crate::tree::Field;
 use crate::tree::properties::node_read::COMPONENT_INTERFACE;
 
@@ -40,4 +40,12 @@ fn an_unreadable_interface_list_makes_the_dependent_field_a_failure() {
     let interfaces = Field::Failed("timed out".to_owned());
     let skipped = skipped_without::<()>(&interfaces, ACTION_INTERFACE);
     assert!(skipped.is_some_and(|field| field.is_failed()));
+}
+
+#[test]
+fn a_qt_display_name_reads_as_the_machine_name_every_toolkit_matches() {
+    assert_eq!(machine_name("Show Menu".into()), "ShowMenu");
+    assert_eq!(machine_name("Set Focus".into()), "SetFocus");
+    assert_eq!(machine_name("doDefault".into()), "doDefault");
+    assert_eq!(machine_name("menu.popup".into()), "menu.popup");
 }

@@ -16,13 +16,23 @@ use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 
 const SEMANTIC_ROUTE: &str = "Selection.SelectChild";
-const POINTER_ROUTE: &str = "XTEST.click";
+
+/// The label of the click a headed select would send: the compositor's
+/// virtual pointer where one carries input, XTEST otherwise.
+fn pointer_route() -> &'static str {
+    if crate::input::wayland::virtual_input::virtual_send::compositor().is_some() {
+        "VirtualPointer.click"
+    } else {
+        "XTEST.click"
+    }
+}
 
 /// The pointer and the keys a headed select uses once no semantic route can
-/// carry it. A headless select has none, so it never holds one.
+/// carry it. A headless select has none, so it never holds one. `press`
+/// sends one unmodified key to whatever holds keyboard focus.
 pub(crate) trait Pointer {
     fn click(&self, element: &AtspiElement) -> Result<Vec<ActionStep>, AdapterError>;
-    fn escape(&self) -> Result<Vec<ActionStep>, AdapterError>;
+    fn press(&self, key: &str) -> Result<Vec<ActionStep>, AdapterError>;
 }
 
 pub(crate) struct LivePointer<'a> {
@@ -51,9 +61,9 @@ impl Pointer for LivePointer<'_> {
         )
     }
 
-    fn escape(&self) -> Result<Vec<ActionStep>, AdapterError> {
+    fn press(&self, key: &str) -> Result<Vec<ActionStep>, AdapterError> {
         let combo = KeyCombo {
-            key: "escape".to_owned(),
+            key: key.to_owned(),
             modifiers: Vec::new(),
         };
         press_key_global_steps(&self.world(), &combo, self.lease.deadline())
@@ -63,7 +73,7 @@ impl Pointer for LivePointer<'_> {
 /// The answer for a select whose wanted choice is already the one in place:
 /// the pointer click is skipped, and the read-back that showed it verifies it.
 pub(crate) fn already_satisfied() -> ActionResult {
-    let step = ActionStep::skipped(POINTER_ROUTE)
+    let step = ActionStep::skipped(pointer_route())
         .with_mechanism(StepMechanism::PhysicalSynthetic)
         .with_verified(true);
     ActionResult::satisfied_without_delivery("select").with_steps(vec![step])
@@ -93,8 +103,9 @@ fn record_refusal(mut result: ActionResult, refusal: &AdapterError) -> ActionRes
 
 /// A select whose semantic route was refused because the toolkit's index
 /// cannot be mapped to the intended row goes on with the pointer when the
-/// request holds one. Every other answer stands, and so does every answer to a
-/// headless request.
+/// request holds one. A headless request on a compositor whose virtual pointer
+/// a headed request would use is a policy refusal naming `--headed`. Every
+/// other answer stands.
 pub(in crate::actions) fn after_unproven_index(
     pointer: Option<&dyn Pointer>,
     semantic: impl FnOnce() -> Result<ActionResult, AdapterError>,
@@ -104,8 +115,31 @@ pub(in crate::actions) fn after_unproven_index(
         (Err(refusal), Some(pointer)) if is_unproven_index(&refusal) => {
             by_pointer(pointer).map(|result| record_refusal(result, &refusal))
         }
+        (Err(refusal), None)
+            if is_unproven_index(&refusal)
+                && crate::input::wayland::virtual_input::virtual_send::compositor().is_some() =>
+        {
+            Err(row_pointer_required())
+        }
         (answer, _) => answer,
     }
+}
+
+/// The refusal for a row whose index the toolkit cannot map, on a compositor
+/// whose virtual pointer a headed request would click it with.
+pub(in crate::actions) fn row_pointer_required() -> AdapterError {
+    AdapterError::policy_denied_for_policy(
+        "Selecting this row takes the pointer, which the interaction policy does not allow",
+        InteractionPolicy::headless(),
+    )
+    .with_suggestion(
+        "Run select again with --headed: the pointer clicks the row and the result is checked against the row's selected state.",
+    )
+    .with_details(json!({
+        "kind": "pointer_required",
+        "cause": UNPROVEN_INDEX_KIND,
+        "physical_delivery_started": false,
+    }))
 }
 
 /// The answer for a select the pointer carried: delivered, and verified
@@ -133,7 +167,7 @@ pub(in crate::actions) fn pointer_required() -> AdapterError {
         InteractionPolicy::headless(),
     )
     .with_suggestion(
-        "Run select again with --headed on X11: the pointer opens the dropdown and the choice is checked against the value it shows. A headless request and a Wayland session cannot open it.",
+        "Run select again with --headed on X11 or Hyprland: the pointer opens the dropdown and the choice is checked against the value it shows. A headless request, and a Wayland compositor without a virtual pointer, cannot open it.",
     )
     .with_details(json!({
         "kind": "pointer_required",

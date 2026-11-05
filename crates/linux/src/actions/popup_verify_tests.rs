@@ -8,13 +8,16 @@ fn qt_popup_backend_discovery_failure_is_not_a_native_platform_limitation() {
     use crate::system::x11::window::window_kind::WindowKind;
 
     require_qt_popup_backend(
-        true,
-        ControlRead::Ready(vec![Toplevel {
-            id: 1,
-            title: String::new(),
-            kind: WindowKind::Normal,
-            transient: false,
-        }]),
+        native_qt_backend(
+            true,
+            ControlRead::Ready(vec![Toplevel {
+                id: 1,
+                title: String::new(),
+                kind: WindowKind::Normal,
+                transient: false,
+            }]),
+        ),
+        false,
     )
     .expect("a proven XWayland window permits semantic opening");
 
@@ -25,7 +28,8 @@ fn qt_popup_backend_discovery_failure_is_not_a_native_platform_limitation() {
         (true, ControlRead::NoManager, false),
         (true, ControlRead::Unavailable, false),
     ] {
-        let error = require_qt_popup_backend(configured, windows).expect_err("refuse opening");
+        let error = require_qt_popup_backend(native_qt_backend(configured, windows), false)
+            .expect_err("refuse opening");
         assert_eq!(error.disposition, DeliverySemantics::not_delivered());
         assert_eq!(
             error.code,
@@ -251,4 +255,17 @@ fn naming_the_overview_gives_an_error_without_details_a_cause_and_leaves_others_
         assert!(left.details.is_none());
         assert!(left.suggestion.is_none());
     }
+}
+
+#[test]
+fn a_native_qt_popup_a_virtual_pointer_could_open_is_a_policy_refusal_naming_headed() {
+    let error = require_qt_popup_backend(Some(true), true).expect_err("refuse headless opening");
+    assert_eq!(error.code, ErrorCode::PolicyDenied);
+    assert_eq!(error.disposition, DeliverySemantics::not_delivered());
+    let details = error.details.expect("refusal evidence");
+    assert_eq!(details["kind"], "pointer_required");
+    assert_eq!(details["cause"], "native_popup_requires_input");
+    assert!(require_qt_popup_backend(Some(false), true).is_ok());
+    let unknown = require_qt_popup_backend(None, true).expect_err("backend unproven");
+    assert_eq!(unknown.code, ErrorCode::ActionFailed);
 }

@@ -364,7 +364,7 @@ pub(crate) fn select(
                     target.deadline,
                 )) == crate::tree::properties::toolkit_trust::ToolkitKind::Qt
             {
-                return click_row(
+                return select_qt_keys::select_qt_combo(
                     target,
                     &hit,
                     display_value,
@@ -387,6 +387,7 @@ pub(super) mod select_index;
 pub(crate) mod select_pointer;
 pub(super) mod select_pointer_combo;
 pub(crate) mod select_popup;
+mod select_qt_keys;
 pub(super) mod select_row;
 pub(crate) mod select_search;
 mod select_verb;

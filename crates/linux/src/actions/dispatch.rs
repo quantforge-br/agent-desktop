@@ -6,9 +6,10 @@ use serde_json::json;
 
 use super::click::{click, right_click};
 use super::context::Target;
-use super::disclosure::set_expanded;
+use super::disclosure::{await_expanded, set_expanded};
 use super::focus::focus;
 use super::physical_target::deliver;
+use super::pointer_open::expand_or_click;
 use super::process_check::verify_process;
 use super::scroll::scroll_wrap::scroll_to;
 use super::select::select;
@@ -145,6 +146,11 @@ pub(crate) fn execute_action(
         Action::Toggle => toggle(&target, None),
         Action::Check => toggle(&target, Some(true)),
         Action::Uncheck => toggle(&target, Some(false)),
+        Action::Expand if request.policy.is_headed() => expand_or_click(
+            || set_expanded(&target, true),
+            || deliver(bus, &Action::Click, Some(element), &request, lease),
+            || await_expanded(&target),
+        ),
         Action::Expand => set_expanded(&target, true),
         Action::Collapse => set_expanded(&target, false),
         Action::Select(display_value) => {

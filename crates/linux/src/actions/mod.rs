@@ -8,6 +8,7 @@ pub(crate) mod focus;
 pub(crate) mod live;
 pub(crate) mod native_menu;
 pub(crate) mod physical_target;
+mod pointer_open;
 mod popup_verify;
 mod process_check;
 pub(crate) mod scroll;

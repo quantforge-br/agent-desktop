@@ -138,7 +138,8 @@ impl Pointer for Fake {
         ])
     }
 
-    fn escape(&self) -> Result<Vec<ActionStep>, AdapterError> {
+    fn press(&self, key: &str) -> Result<Vec<ActionStep>, AdapterError> {
+        assert_eq!(key, "escape");
         let mut world = self.0.borrow_mut();
         world.escapes += 1;
         if world.escape_closes {

@@ -61,11 +61,25 @@ async fn action_name(
 ) -> Result<String, AdapterError> {
     let reply = call(connection, element, ACTION_INTERFACE, "GetName", &(index,)).await;
     match deserialize::<String>(reply) {
-        Ok(name) if !name.is_empty() => Ok(name),
+        Ok(name) if !name.is_empty() => Ok(machine_name(name)),
         Err(error) if crate::system::is_connection_failure(&error) => {
             Err(crate::system::classify(&error))
         }
-        _ => Ok(listed),
+        _ => Ok(machine_name(listed)),
+    }
+}
+
+/// Qt answers `GetName` with its English display name for an action, such as
+/// `Show Menu` for `ShowMenu` and `Set Focus` for `SetFocus`. Removing the
+/// spaces gives back the machine name every other toolkit returns; machine
+/// names carry no spaces, so they are left as they are.
+pub(in crate::tree) fn machine_name(name: String) -> String {
+    if name.contains(|character: char| character.is_ascii_whitespace()) {
+        name.chars()
+            .filter(|character| !character.is_ascii_whitespace())
+            .collect()
+    } else {
+        name
     }
 }
 
