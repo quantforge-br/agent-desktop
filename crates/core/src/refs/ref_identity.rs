@@ -48,7 +48,12 @@ pub fn has_stable_text_identity(entry: &RefEntry) -> bool {
             entry.identity.value.as_deref(),
         )
         .is_some()
-        || crate::tree::accname::non_blank(entry.identity.description.as_deref()).is_some()
+        || stable_description(
+            entry.identity.role.as_str(),
+            entry.identity.description.as_deref(),
+            entry.identity.value.as_deref(),
+        )
+        .is_some()
 }
 
 /// Whether an element's own identifier or stable text identifies it, ignoring
@@ -66,7 +71,7 @@ pub fn identity_fields_are_meaningful(
     crate::tree::accname::non_blank(native_id).is_some()
         || stable_name(role, name, value).is_some()
         || stable_value(role, value).is_some()
-        || crate::tree::accname::non_blank(description).is_some()
+        || stable_description(role, description, value).is_some()
 }
 
 pub fn identity_match(
@@ -166,11 +171,14 @@ pub fn stable_text_match(
         entry.identity.role.as_str(),
         entry.identity.value.as_deref(),
     );
-    let expected_description =
-        crate::tree::accname::non_blank(entry.identity.description.as_deref());
-    let actual_name = stable_name_field(entry.identity.role.as_str(), actual_name, actual_value);
-    let actual_value = stable_value_field(entry.identity.role.as_str(), actual_value);
+    let expected_description = stable_description(
+        entry.identity.role.as_str(),
+        entry.identity.description.as_deref(),
+        entry.identity.value.as_deref(),
+    );
+    let actual_name = meaningful_field(actual_name);
     let actual_description = meaningful_field(actual_description);
+    let actual_value = stable_value_field(entry.identity.role.as_str(), actual_value);
 
     if let Some(expected) = expected_name {
         return match_primary_identity(expected, actual_name, actual_value);
@@ -243,25 +251,6 @@ pub(crate) fn meaningful_field<T: AsRef<str>>(field: &LocatorField<T>) -> Locato
     }
 }
 
-pub(crate) fn stable_name_field<'a, T: AsRef<str>>(
-    role: &str,
-    name: &'a LocatorField<T>,
-    value: &LocatorField<T>,
-) -> LocatorField<&'a str> {
-    let name = meaningful_field(name);
-    if !is_mutable_value_role(role) {
-        return name;
-    }
-    let LocatorField::Known(name) = name else {
-        return name;
-    };
-    match meaningful_field(value) {
-        LocatorField::Known(value) if value_matches_name(Some(value), name) => LocatorField::Absent,
-        LocatorField::Known(_) | LocatorField::Absent => LocatorField::Known(name),
-        LocatorField::Unknown => LocatorField::Unknown,
-    }
-}
-
 fn stable_value_field<'a>(role: &str, value: &'a LocatorField<String>) -> LocatorField<&'a str> {
     if is_mutable_value_role(role) {
         LocatorField::Absent
@@ -283,6 +272,14 @@ pub(crate) fn stable_name<'a>(
     } else {
         Some(name)
     }
+}
+
+pub(crate) fn stable_description<'a>(
+    role: &str,
+    description: Option<&'a str>,
+    value: Option<&str>,
+) -> Option<&'a str> {
+    stable_name(role, description, value)
 }
 
 fn stable_value<'a>(role: &str, value: Option<&'a str>) -> Option<&'a str> {

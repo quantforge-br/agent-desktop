@@ -5,7 +5,7 @@ use crate::{
     ElementIdentifier, IdentityMatch, RefEntry,
     locator::live_locator::{LocatorEvidence, LocatorField, ObservationSource, ObservedTree},
     refs::ref_full_predicate::{DESCRIPTION, FullPredicate, NAME, NATIVE_ID},
-    refs::ref_identity::stable_name,
+    refs::ref_identity::{stable_description, stable_name},
     refs::ref_live_predicate::LivePredicate,
     tree::accname::non_blank,
 };
@@ -153,7 +153,11 @@ fn keys_of<'a>(evidence: &'a LocatorEvidence, fields: u8) -> Vec<LiveKey<'a>> {
     };
     let description = match fields & DESCRIPTION {
         0 => None,
-        _ => match non_blank(evidence.description.known().map(String::as_str)) {
+        _ => match stable_description(
+            role,
+            evidence.description.known().map(String::as_str),
+            evidence.value.known().map(String::as_str),
+        ) {
             Some(description) => Some(description),
             None => return Vec::new(),
         },
@@ -181,8 +185,8 @@ fn unread_bits(evidence: &LocatorEvidence) -> u8 {
     let live = LivePredicate::observed(evidence);
     let mut bits = 0;
     match &live.role {
-        LocatorField::Known(role) => {
-            if live.stable_name(role).is_unknown() {
+        LocatorField::Known(_) => {
+            if live.name.is_unknown() {
                 bits |= NAME;
             }
         }

@@ -1,9 +1,8 @@
 use crate::{
     ElementIdentifier, IdentityMatch, RefEntry,
     locator::live_locator::LocatorField,
-    refs::ref_identity::{equality_match, meaningful_field, stable_name, stable_name_field},
+    refs::ref_identity::{equality_match, meaningful_field, stable_description, stable_name},
     refs::ref_live_predicate::LivePredicate,
-    tree::accname::non_blank,
 };
 
 pub(crate) const NATIVE_ID: u8 = 0b001;
@@ -44,7 +43,7 @@ impl<'a> FullPredicate<'a> {
             role,
             native_id: native_id.filter(|identifier| !identifier.value.trim().is_empty()),
             name: stable_name(role, name, value),
-            description: non_blank(description),
+            description: stable_description(role, description, value),
             mask: 0,
         }
         .recorded()
@@ -57,10 +56,7 @@ impl<'a> FullPredicate<'a> {
         [
             field_match(Some(self.role), &live.role),
             self.native_id_match(live),
-            field_match(
-                self.name,
-                &stable_name_field(self.role, &live.name, &live.value),
-            ),
+            field_match(self.name, &meaningful_field(&live.name)),
             field_match(self.description, &meaningful_field(&live.description)),
         ]
         .into_iter()

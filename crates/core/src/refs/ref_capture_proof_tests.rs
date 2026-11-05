@@ -340,3 +340,6 @@ fn a_skipped_native_sibling_does_not_unprove_the_refs_after_it() {
 
     assert_eq!(flags(root, &observed), [true, true]);
 }
+
+#[path = "ref_capture_proof_mirror_tests.rs"]
+mod mirror_tests;
