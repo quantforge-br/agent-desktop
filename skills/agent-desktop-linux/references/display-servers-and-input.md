@@ -81,7 +81,11 @@ necessary, not sufficient: while a popup menu holds the grab, keys reach the
 menu even if the frame reads active, so key steps stay unverified.
 
 Pointer forms aim at the centre of the ref's bounds, which the adapter withholds
-where the position is not proved. Read the result with a fresh `get`.
+where the position is not proved. A hit-tested point that no display shows is
+dropped for the centre of the part of the bounds a display shows, as on a window
+taller than its monitor. A target no display shows at all is refused with
+`ACTION_FAILED`, `details.kind: outside_displays`, `not_delivered`: scroll it
+into view or move its window first. Read the result with a fresh `get`.
 
 Ref-addressed double and triple clicks prove the pointer receiver before every
 press, so a window raised by the first click is seen before the second. The

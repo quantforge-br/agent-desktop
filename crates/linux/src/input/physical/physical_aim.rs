@@ -54,18 +54,35 @@ pub(crate) fn validate(
 /// The point a pointer gesture without a proven point aims at: the centre of
 /// the part of `rect` its largest overlap with one display shows. An element
 /// taller than the monitor its window is on, as a window cropped by its
-/// tiling compositor has, keeps a reachable aim. A rect that overlaps no
-/// display keeps its own centre.
-pub(crate) fn visible_centre(rect: Rect, displays: &[Rect]) -> Point {
-    let shown = displays
-        .iter()
-        .filter_map(|display| overlap(&rect, display))
-        .max_by(|left, right| (left.width * left.height).total_cmp(&(right.width * right.height)))
-        .unwrap_or(rect);
-    Point {
+/// tiling compositor has, keeps a reachable aim. A rect no listed display
+/// shows has no aim; with no display listed, the rect keeps its own centre.
+pub(crate) fn visible_centre(rect: Rect, displays: &[Rect]) -> Option<Point> {
+    let shown = if displays.is_empty() {
+        rect
+    } else {
+        displays
+            .iter()
+            .filter_map(|display| overlap(&rect, display))
+            .max_by(|left, right| {
+                (left.width * left.height).total_cmp(&(right.width * right.height))
+            })?
+    };
+    Some(Point {
         x: shown.x + shown.width / 2.0,
         y: shown.y + shown.height / 2.0,
-    }
+    })
+}
+
+/// Whether a listed display shows `point`; with no display listed, every
+/// point counts as shown.
+pub(crate) fn is_shown(point: &Point, displays: &[Rect]) -> bool {
+    displays.is_empty()
+        || displays.iter().any(|display| {
+            point.x >= display.x
+                && point.x < display.x + display.width
+                && point.y >= display.y
+                && point.y < display.y + display.height
+        })
 }
 
 fn overlap(rect: &Rect, display: &Rect) -> Option<Rect> {

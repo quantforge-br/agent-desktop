@@ -203,18 +203,37 @@ pub(crate) fn aim_point(
     verified: Option<&Point>,
     deadline: Deadline,
 ) -> Result<Point, AdapterError> {
-    if let Some(point) = verified {
+    let displays = world.displays(deadline);
+    if let Some(point) = verified.filter(|point| super::physical_aim::is_shown(point, &displays)) {
         point.validate()?;
         return Ok(point.clone());
     }
     match world.bounds(element, deadline)? {
         Some(rect) if rect.width > 0.0 && rect.height > 0.0 => {
-            let point = super::physical_aim::visible_centre(rect, &world.displays(deadline));
+            let point = super::physical_aim::visible_centre(rect, &displays)
+                .ok_or_else(|| outside_displays(rect))?;
             point.validate()?;
             Ok(point)
         }
         _ => Err(geometry_refusal()),
     }
+}
+
+fn outside_displays(rect: Rect) -> AdapterError {
+    AdapterError::new(
+        ErrorCode::ActionFailed,
+        "The target lies outside every display, so no pointer event was sent",
+    )
+    .with_suggestion(
+        "Bring the target onto a display, for example with 'scroll-to' or 'move-window', then run 'snapshot' again",
+    )
+    .with_details(json!({
+        "check": "geometry",
+        "kind": "outside_displays",
+        "bounds": rect,
+        "physical_delivery_started": false,
+    }))
+    .with_disposition(DeliverySemantics::not_delivered())
 }
 
 fn geometry_refusal() -> AdapterError {
