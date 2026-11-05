@@ -65,7 +65,7 @@ fn evidence_of(result: &ActionResult) -> String {
 fn it_expands_then_clicks_the_named_button() {
     let log = log();
     let world = FakeWorld::new(&log, vec![entry(false), entry(true), gone()]);
-    let source = signals(&log, vec![Signal::ActionInvoked(7), Signal::Closed(7)]);
+    let source = signals(&log, vec![Signal::ActionInvoked(7), Signal::Closed(7, 2)]);
     let result = go(&world, &source, "run b").expect("delivered");
     assert_eq!(world.clicks(), vec!["/Mail:a/expand", "/Mail:a/act/Run B"]);
     assert_eq!(result.action, "run b");
@@ -176,7 +176,7 @@ fn an_entry_that_moved_is_not_acted_on() {
 fn the_result_is_never_verified() {
     let log = log();
     let world = FakeWorld::new(&log, vec![entry(true), gone()]);
-    let source = signals(&log, vec![Signal::ActionInvoked(1), Signal::Closed(1)]);
+    let source = signals(&log, vec![Signal::ActionInvoked(1), Signal::Closed(1, 2)]);
     let result = go(&world, &source, "Run A").expect("delivered");
     assert_eq!(
         result.disposition(),

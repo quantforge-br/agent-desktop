@@ -15,7 +15,7 @@ const PATH: &str = "/org/freedesktop/Notifications";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Signal {
     ActionInvoked(u32),
-    Closed(u32),
+    Closed(u32, u32),
 }
 
 /// A subscription made before a press. Collecting from it, or dropping it,
@@ -93,8 +93,8 @@ fn parse(message: &zbus::Message) -> Option<Signal> {
             Some(Signal::ActionInvoked(id))
         }
         "NotificationClosed" => {
-            let (id, _reason): (u32, u32) = message.body().deserialize().ok()?;
-            Some(Signal::Closed(id))
+            let (id, reason): (u32, u32) = message.body().deserialize().ok()?;
+            Some(Signal::Closed(id, reason))
         }
         _ => None,
     }

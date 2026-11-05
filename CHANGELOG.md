@@ -5,6 +5,7 @@
 ### Features
 
 * Support Hyprland on Linux. `list-windows`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore`, `close-app` and `launch --activate` drive native Wayland and Xwayland windows through Hyprland's request socket; `press`, `type` and the `--headed` pointer commands send input through a Wayland virtual keyboard and pointer; `screenshot` captures a window or display through `ext-image-copy-capture-v1` with no consent dialog. Refs are placed from Hyprland's window origins, and the pointer receiver is proved from its stacking. Scroll areas, lists and documents carry the `Scroll` capability, so `scroll @ref --headed` wheels them.
+* Support dux-shell (DankMaterialShell on quickshell) as a Linux shell. `list-notifications`, `dismiss-notification`, `dismiss-all-notifications` and `notification-action` work on its notification center, and `open-system-surface` opens its notification center, control center, launcher, dock and top bar over its IPC.
 
 ### Bug Fixes
 

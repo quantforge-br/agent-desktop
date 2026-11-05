@@ -8,10 +8,12 @@ use agent_desktop_core::{
 
 use crate::system::{SharedBus, window::window_id};
 use crate::tree::AtspiElement;
+use dux::backend::{self, Backend};
 
 pub(crate) mod container;
 pub(crate) mod deliver;
 pub(crate) mod detect;
+pub(crate) mod dux;
 pub(crate) mod hit;
 pub(crate) mod identity;
 pub(crate) mod kinds;
@@ -40,6 +42,9 @@ pub(crate) fn supported(bus: &SharedBus) -> Vec<SnapshotSurface> {
     let Ok(deadline) = Deadline::after(SUPPORT_BUDGET_MS) else {
         return Vec::new();
     };
+    if let Backend::Dux(shell) = backend::select(deadline) {
+        return dux::entry::supported(bus, shell, deadline);
+    }
     kinds::advertised(&detect::detect(bus, deadline))
         .into_iter()
         .filter(|surface| resolve_surface(bus, *surface, deadline).is_ok())
@@ -68,6 +73,19 @@ pub(crate) fn is_shell_window(window: &WindowInfo) -> bool {
         .is_ok_and(|(bus_name, _)| identity::is_shell_owner(&bus_name, window.pid.get()))
 }
 
+/// Whether observing the surface goes through the shell rather than through a
+/// window's own tree: the kinds the GNOME rules root, and the surfaces of a
+/// dux-shell session that have no GNOME kind.
+pub(crate) fn roots_surface(surface: SnapshotSurface) -> bool {
+    if kinds::kind_of(surface).is_some() {
+        return true;
+    }
+    let Ok(deadline) = Deadline::after(SUPPORT_BUDGET_MS) else {
+        return false;
+    };
+    dux::surface::of(surface).is_ok() && matches!(backend::select(deadline), Backend::Dux(_))
+}
+
 fn unknown_kind_error(surface: SnapshotSurface) -> AdapterError {
     AdapterError::new(
         ErrorCode::InvalidArgs,
@@ -85,6 +103,9 @@ pub(crate) fn resolve_surface(
     surface: SnapshotSurface,
     deadline: Deadline,
 ) -> Result<WindowInfo, AdapterError> {
+    if let Backend::Dux(shell) = backend::select(deadline) {
+        return dux::entry::resolve(bus, shell, surface, deadline);
+    }
     let Some(kind) = kinds::kind_of(surface) else {
         return Err(unknown_kind_error(surface));
     };
@@ -100,6 +121,20 @@ pub(crate) fn resolve_surface(
 }
 
 pub(crate) fn open_surface(
+    bus: &SharedBus,
+    surface: SnapshotSurface,
+    policy: InteractionPolicy,
+    lease: &InteractionLease,
+) -> Result<WindowInfo, AdapterError> {
+    if let Backend::Dux(shell) = backend::select(lease.deadline()) {
+        return dux::entry::open(bus, shell, surface, policy, lease);
+    }
+    open_gnome_surface(bus, surface, policy, lease)
+}
+
+/// Opens a surface of the GNOME Shell: the rules that apply when the session
+/// is not a dux-shell one.
+fn open_gnome_surface(
     bus: &SharedBus,
     surface: SnapshotSurface,
     policy: InteractionPolicy,
@@ -124,6 +159,9 @@ pub(crate) fn observe_shell(
     window: &WindowInfo,
     request: &ObservationRequest,
 ) -> Result<ObservedTree, AdapterError> {
+    if let Backend::Dux(shell) = backend::select(request.deadline) {
+        return dux::entry::observe(bus, shell, window, request);
+    }
     window_gate::verify(bus, &window.id, request.deadline)?;
     let current = resolve_surface(bus, request.surface, request.deadline)?;
     if current.id != window.id {

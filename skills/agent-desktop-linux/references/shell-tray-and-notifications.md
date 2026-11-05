@@ -143,6 +143,41 @@ prove it. Advertised surfaces require a resolvable structural container.
   `wayland_session`, before any input, and a popup opener refuses with
   `pointer_hit_unproven` because the shared hit test cannot prove its receiver.
 
+## dux-shell (DankMaterialShell on quickshell)
+
+The backend is chosen by evidence, never by an environment variable or the
+desktop name: `org.gnome.Shell` has no owner, and the process owning
+`org.freedesktop.Notifications` is a `quickshell`/`qs` of the same user that
+either loads a directory holding `DMSShell.qml` and `shell.qml` (`-p`/`-c`) or
+was started by `dms run`. GNOME Shell keeps precedence when its name is owned.
+
+- **Surfaces.** `notification-center` (`action-center`), `quick-settings`
+  (control center), `spotlight` (launcher), `dock` (`taskbar`) and
+  `system-tray` (the top bar). Opening goes through
+  `qs ipc --pid <shell pid> call <target> <function>` and needs `--headed`
+  unless the surface is already on screen; the window returned is the one
+  Hyprland maps as the surface's layer (`j/layers`) and AT-SPI exposes with the
+  same size. `start-menu`, `menubar` and `system-tray-overflow` fail with
+  `INVALID_ARGS` naming what the shell offers. Snapshot `notification-center`
+  and `spotlight` with `--window-id` taken from `open-system-surface`.
+- **Notifications.** The center exists in the accessibility tree only while it
+  is open, so `list-notifications` needs it open already or `--headed`; it is
+  opened over IPC, groups are expanded for the read, and both are restored. The
+  mutating commands (`dismiss-notification`, `dismiss-all-notifications`,
+  `notification-action`) press the card's own controls through AT-SPI and
+  require `--headed`. Proof is independent of the press: the card leaving the
+  tree, exactly one `NotificationClosed` with reason 2, and `ActionInvoked` for
+  an action. An action closes the center itself. A press with no effect is
+  `delivered_unverified`.
+- **Limits.** An app name containing `". "` splits wrongly into app and title;
+  a group shows at most ten cards, and a larger one fails rather than listing
+  part; `dock` is revealed over IPC and not hidden again; the tray needs the
+  StatusNotifierWatcher owned by the shell (`no_watcher` / `foreign_watcher`
+  otherwise).
+- **Pointer gate.** Controls the shell can only reach by a physical click are
+  refused before anything is pressed on a Wayland session without a pointer
+  service.
+
 ## Service requirements and exact refusals
 
 The shell accessibility tree, notification daemon and tray watcher are separate

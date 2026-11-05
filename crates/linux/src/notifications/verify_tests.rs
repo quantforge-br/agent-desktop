@@ -46,7 +46,10 @@ fn an_action_needs_the_entry_to_have_left_to_count() {
 
 #[test]
 fn a_closed_signal_alone_is_not_action_evidence() {
-    assert_eq!(evidence(&[Signal::Closed(4)], true), Some("entry_removed"));
+    assert_eq!(
+        evidence(&[Signal::Closed(4, 2)], true),
+        Some("entry_removed")
+    );
 }
 
 #[test]

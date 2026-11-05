@@ -68,7 +68,11 @@ fn signals_subscribed_before_a_close_arrive_and_after_it_do_not() {
     let id = notify("live-signals", "closed early", "");
     oracle(&["close", &id.to_string()]);
     let seen = early.collect(Duration::from_secs(3));
-    assert!(seen.contains(&Signal::Closed(id)), "{seen:?}");
+    assert!(
+        seen.iter()
+            .any(|signal| matches!(signal, Signal::Closed(closed, _) if *closed == id)),
+        "{seen:?}"
+    );
 
     let id = notify("live-signals", "closed before the rule", "");
     oracle(&["close", &id.to_string()]);

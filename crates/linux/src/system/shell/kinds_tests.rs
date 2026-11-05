@@ -19,7 +19,7 @@ fn an_absent_or_unreadable_tree_advertises_nothing() {
 fn taskbar_open_is_refused_before_any_bus_access() {
     let deadline = Deadline::after(1_000).expect("valid deadline");
     let lease = InteractionLease::guarded(deadline, ()).expect("valid lease");
-    let error = crate::system::shell::open_surface(
+    let error = crate::system::shell::open_gnome_surface(
         &SharedBus::default(),
         SnapshotSurface::Taskbar,
         InteractionPolicy::headless(),

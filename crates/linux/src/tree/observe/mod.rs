@@ -304,7 +304,7 @@ pub(crate) fn observe_tree(
         if request.surface == SnapshotSurface::Menu {
             return observe_menu(bus, window, request);
         }
-        if shell::kinds::kind_of(request.surface).is_some() {
+        if shell::roots_surface(request.surface) {
             return shell::observe_shell(bus, window, request);
         }
     }

@@ -24,7 +24,7 @@ A stale `WAYLAND_DISPLAY` from another session falls through to a working
 | Headless scoped `press` | Live display and frame focus guards, no activation | Live frame focus guard, no activation | Live frame focus guard, no activation |
 | `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` picks a monitor | `ext-image-copy-capture`, no portal dialog |
 | Clipboard | Native selection owner | `wl-clipboard` | `wl-clipboard` |
-| GNOME Shell ref click, popup opener | `--headed`, receiver proof from the shell's own tree | Ref click refused with `wayland_session`, popup opener refused as unproven; see shell reference | No GNOME Shell; see shell reference |
+| GNOME Shell ref click, popup opener | `--headed`, receiver proof from the shell's own tree | Ref click refused with `wayland_session`, popup opener refused as unproven; see shell reference | dux-shell surfaces over IPC; see shell reference |
 
 X11 needs no tool beyond the binary and its clipboard helper. `xdotool`,
 `ydotool`, `xclip` and `wmctrl` are not used. `wl-clipboard` is the one outside
