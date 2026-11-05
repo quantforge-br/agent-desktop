@@ -12,7 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from oracle import proc as process
-from runner.session_environment import _PAYLOAD, _ENV_KEYS
+from runner.bounded import load_bounded_process as _load_bounded_process
+from runner.session_a11y import _a11y_address, _a11y_warm
+from runner.session_base import session_base as _session_base
+from runner.session_environment import _PAYLOAD, _ENV_KEYS, HYPRLAND_ENV_KEYS, hyprland_env
 HARNESS_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = HARNESS_ROOT.parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -20,12 +23,16 @@ SCRIPTS_DIR = REPO_ROOT / "scripts"
 SCRIPT_PRIVATE_SESSION = SCRIPTS_DIR / "private-session.sh"
 SCRIPT_MUTTER_SHELL = SCRIPTS_DIR / "private-mutter-shell.sh"
 SCRIPT_WAYLAND_SHELL = SCRIPTS_DIR / "private-wayland-shell.sh"
+SCRIPT_HYPRLAND_SHELL = SCRIPTS_DIR / "private-hyprland-shell.sh"
 
 _INNER_WRAPPERS = {
     "x11-openbox": (),
     "x11-mutter": ("SCRIPT_MUTTER_SHELL",),
     "wayland": ("SCRIPT_WAYLAND_SHELL",),
+    "hyprland": ("SCRIPT_HYPRLAND_SHELL",),
 }
+_STANDALONE_TIERS = frozenset({"hyprland"})
+WAYLAND_TIERS = frozenset({"wayland", "hyprland"})
 
 ENV_FILE_VAR = "AD_TIER_ENV_FILE"
 RELEASE_FILE_VAR = "AD_TIER_RELEASE_FILE"
@@ -55,17 +62,12 @@ class TeardownError(Exception):
     pass
 
 
-def _load_bounded_process():
-    spec = importlib.util.spec_from_file_location("bounded_process",
-                                                 HARNESS_ROOT.parent / "e2e" / "bounded_process.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 def _tier_argv(name: str) -> list[str]:
     if name not in _INNER_WRAPPERS:
         raise ValueError(f"unknown tier {name}")
+    if name in _STANDALONE_TIERS:
+        script = globals()[_INNER_WRAPPERS[name][0]]
+        return ["bash", str(script), "--", "bash", "-c", _PAYLOAD]
     argv = ["bash", str(SCRIPT_PRIVATE_SESSION)]
     if name == "x11-openbox":
         argv.append("--wm")
@@ -80,7 +82,7 @@ def _parse_env_file(text: str) -> dict[str, str]:
     env = {}
     for line in text.splitlines():
         key, sep, value = line.partition("=")
-        if sep and key in _ENV_KEYS:
+        if sep and key in _ENV_KEYS + HYPRLAND_ENV_KEYS:
             env[key] = value
     return env
 
@@ -144,45 +146,6 @@ def _remove_tree(path: Path) -> bool:
     return not path.exists()
 
 
-def _a11y_address(env: dict[str, str], deadline: float) -> str | None:
-    bounded = _load_bounded_process()
-    call_env = {
-        "PATH": env.get("PATH", os.defpath),
-        "DBUS_SESSION_BUS_ADDRESS": env["DBUS_SESSION_BUS_ADDRESS"],
-    }
-    while time.monotonic() < deadline:
-        result = bounded.run_bounded(
-            ["gdbus", "call", "--session", "-d", "org.a11y.Bus", "-o", "/org/a11y/bus",
-             "-m", "org.a11y.Bus.GetAddress"],
-            timeout_seconds=15,
-            env=call_env,
-        )
-        if result.returncode == 0:
-            marker = result.stdout.find("'")
-            end = result.stdout.find("'", marker + 1)
-            if marker != -1 and end > marker:
-                return result.stdout[marker + 1 : end]
-        time.sleep(0.5)
-    return None
-
-
-def _a11y_warm(env: dict[str, str], deadline: float) -> bool:
-    bounded = _load_bounded_process()
-    call_env = {"PATH": env.get("PATH", os.defpath)}
-    while time.monotonic() < deadline:
-        result = bounded.run_bounded(
-            ["gdbus", "call", "--address", env["AT_SPI_BUS_ADDRESS"],
-             "-d", "org.a11y.atspi.Registry", "-o", "/org/a11y/atspi/registry",
-             "-m", "org.a11y.atspi.Registry.GetRegisteredEvents"],
-            timeout_seconds=15,
-            env=call_env,
-        )
-        if result.returncode == 0:
-            return True
-        time.sleep(0.5)
-    return False
-
-
 def _own_start_time() -> int:
     return _process_start_time(Path("/proc") / "self") or 0
 
@@ -210,13 +173,15 @@ def _build_tier(name: str, env_values: dict[str, str]) -> Tier:
     libraries = list(dict.fromkeys(path for path in libraries if path))
     if libraries:
         env["LD_LIBRARY_PATH"] = os.pathsep.join(libraries)
-    if name == "wayland":
+    if name in WAYLAND_TIERS:
         env.pop("DISPLAY", None)
         env.update(GDK_BACKEND="wayland", XDG_SESSION_TYPE="wayland")
+    if name == "hyprland":
+        env.update(hyprland_env(env_values))
     return Tier(
         name=name,
         runtime_dir=runtime_dir,
-        display=None if name == "wayland" else env_values.get("DISPLAY") or None,
+        display=None if name in WAYLAND_TIERS else env_values.get("DISPLAY") or None,
         wayland_display=env_values.get("WAYLAND_DISPLAY") or None,
         bus_address=env_values["DBUS_SESSION_BUS_ADDRESS"],
         a11y_bus_address=env_values.get("AT_SPI_BUS_ADDRESS", ""),
@@ -332,11 +297,7 @@ def start_tier(name: str, deadline: float):
     release_file = work_dir / f"{name}.release"
     for marker in (env_file, Path(f"{env_file}.tmp"), release_file):
         marker.unlink(missing_ok=True)
-    base = Path(
-        os.environ.get("AGENT_DESKTOP_SESSION_BASE")
-        or (Path(os.environ["XDG_RUNTIME_DIR"]) / "agent-desktop-sessions"
-            if os.environ.get("XDG_RUNTIME_DIR") else Path(f"/tmp/agent-desktop-sessions-{os.getuid()}"))
-    )
+    base = _session_base(name)
     existing = set(base.glob("rt.*"))
     child_env = dict(os.environ)
     child_env.update({

@@ -66,6 +66,20 @@ def dialog(ctx, app, tree, path, data):
             "dialog OK did not activate and close")
 
 
+def twin_refused(error):
+    """The refusal for a ref with an identical twin: GTK 3's chooser keeps a second, hidden Name field."""
+    return bool(error) and error.get("code") == "AMBIGUOUS_TARGET" and \
+        error.get("details", {}).get("kind") == "identity_not_unique"
+
+
+def paste_into_focused(ctx, target, saved):
+    """A twin cannot be typed into by ref; the chooser gives its visible Name field the focus, so paste there."""
+    require("FOCUSED" in target.states, "the chooser did not focus its visible name field")
+    require(ctx.product(["clipboard-set", str(saved)]).ok, "clipboard-set failed")
+    for combo in ("ctrl+a", "ctrl+v"):
+        require(ctx.product(["press", combo], headed=True).ok, f"press {combo} failed")
+
+
 def chooser(ctx, app, tree, path, data, saved):
     # Native chooser labels differ; inactive panes can retain another name field.
     fields = [n for n in ref_nodes(data) if "TypeText" in n.get("available_actions", ())
@@ -74,7 +88,9 @@ def chooser(ctx, app, tree, path, data, saved):
               ("name", "file name", "filename")]
     require(len(fields) == 1, f"expected one save-name field: {fields}")
     target = raw_target(tree, fields[0])
-    act(ctx, fields[0], "type", str(saved))
+    response = act(ctx, fields[0], "type", str(saved))
+    if twin_refused(response.error):
+        paste_into_focused(ctx, target, saved)
     require(poll(lambda: target.text() == str(saved), 3),
             "chooser name field did not receive the runtime path")
     data = surface_snapshot(ctx, app, "Zoo Save", True)

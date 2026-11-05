@@ -67,7 +67,7 @@ class ProcessOracleTests(unittest.TestCase):
                     apps.launch(tier, "Calculator")
 
     def test_warmup_waits_for_transient_extraction_and_keeps_a_deadline(self):
-        tier = SimpleNamespace(display=None, runtime_dir=Path("/private/a"))
+        tier = SimpleNamespace(name="x11-openbox", display=None, runtime_dir=Path("/private/a"))
         for exits in (True, False):
             clock = [0.0]
             def sleep(seconds):
@@ -90,7 +90,7 @@ class ProcessOracleTests(unittest.TestCase):
                     self.assertLess(clock[0], 46)
 
     def test_owner_scan_ignores_retired_bus_names_but_preserves_other_errors(self):
-        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path("/private/a"))
         frame = SimpleNamespace(role=23, bus=":1.2", path="/frame",
                                 interfaces=lambda: ["org.a11y.atspi.Component"])
         node = SimpleNamespace(name="Calculator", bus=":1.2", children=lambda: [frame])
@@ -108,7 +108,7 @@ class ProcessOracleTests(unittest.TestCase):
                     apps._owners(tier)
 
     def test_owner_scan_skips_a_process_during_unreadable_exec(self):
-        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path("/private/a"))
         frame = SimpleNamespace(role=23, bus=":1.2", path="/frame",
                                 interfaces=lambda: ["org.a11y.atspi.Component"])
         node = SimpleNamespace(name="Calculator", bus=":1.2", children=lambda: [frame])
@@ -141,7 +141,7 @@ class ProcessOracleTests(unittest.TestCase):
     def test_warmup_activates_private_app_services_before_the_leg_baseline(self):
         for display, names in ((":150", ["Calculator", "Files", "Terminal", "Text Editor", "Settings"]),
                                (None, ["Calculator", "Text Editor"])):
-            tier = SimpleNamespace(display=display, runtime_dir=Path("/private/a"))
+            tier = SimpleNamespace(name="x11-openbox", display=display, runtime_dir=Path("/private/a"))
             with patch.object(apps, "launch", side_effect=lambda tier, name: name) as launch, \
                 patch.object(apps, "stop") as stop, \
                 patch.object(apps.proc, "members", return_value=[]), \
@@ -178,13 +178,13 @@ class ProcessOracleTests(unittest.TestCase):
     def test_environment_preserves_equals_and_exact_runtime(self):
         self.assertEqual(proc.environment(b"XDG_RUNTIME_DIR=/private/a\0TOKEN=a=b\0ignored\0"),
                          {"XDG_RUNTIME_DIR": "/private/a", "TOKEN": "a=b"})
-        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path("/private/a"))
         self.assertTrue(apps.attributable(tier, 123, 9, {"XDG_RUNTIME_DIR": "/private/a"}))
         self.assertFalse(apps.attributable(tier, 123, 9, {"XDG_RUNTIME_DIR": "/private/ab"}))
         self.assertFalse(apps.attributable(tier, 123, 0, {"XDG_RUNTIME_DIR": "/private/a"}))
 
     def test_registry_attribution_rejects_foreign_first_owner_and_counts_two(self):
-        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path("/private/a"))
 
         def owner(pid):
             frame = SimpleNamespace(bus=f":1.{pid}", path="/frame", role=19,
@@ -217,7 +217,7 @@ class ProcessOracleTests(unittest.TestCase):
             apps.window_id(SimpleNamespace(bus="org.app", path="/frame"))
 
     def test_wrong_display_is_not_accepted(self):
-        tier = SimpleNamespace(display=":151")
+        tier = SimpleNamespace(name="x11-openbox", display=":151")
         app = SimpleNamespace(display=":100", name="Terminal", windows=[], pid=123)
         with patch.object(apps.x11, "stacking_xids", return_value=[]), self.assertRaises(AssertionError):
             apps._display_verified(tier, app)
@@ -229,7 +229,7 @@ class ProcessOracleTests(unittest.TestCase):
 
     def test_stop_never_signals_a_reused_process(self):
         app = apps.OwnedApp("calculator", 123, 40, [":1.7"], ["w-1.7-frame"], ":1")
-        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path("/private/a"))
         with patch.dict(apps._TIERS, {(123, 40): tier}), patch.object(Path, "read_text", return_value="123 (cal) S"), patch.object(
                 proc, "facts", return_value=(41, 123, "cal", {"XDG_RUNTIME_DIR": "/private/a"})), patch.object(
                 raw, "poll", return_value=True), patch.object(apps.os, "kill") as kill, patch.object(apps.os, "killpg") as killpg:
@@ -239,7 +239,7 @@ class ProcessOracleTests(unittest.TestCase):
 
     def test_stop_accepts_cleared_environ_only_after_its_child_has_exited(self):
         app = apps.OwnedApp("fixture", 123, 40, [":1.7"], ["w-1.7-frame"], ":1")
-        tier = SimpleNamespace(runtime_dir=Path("/private/a"))
+        tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path("/private/a"))
         for exited in (True, False):
             def wait(timeout=None):
                 if not exited:

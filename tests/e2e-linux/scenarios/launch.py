@@ -132,11 +132,15 @@ def recovery_strategy_on_error(ctx: LegContext) -> None:
     ctx.after("proc.calculator", read())
     assert not read(), "stale click relaunched the dead owner"
     assert not envelope.ok, envelope.raw
-    assert error_code(envelope) == "STALE_REF", envelope.raw
+    # No same-named process outlives the app on Hyprland, so the exited-process classification is APP_NOT_FOUND there.
+    allowed = ("STALE_REF", "APP_NOT_FOUND") if ctx.tier.name == "hyprland" else ("STALE_REF",)
+    assert error_code(envelope) in allowed, envelope.raw
+    assert envelope.exit_code == 1, envelope.raw
     error = envelope.error or {}
     details = error.get("details") or {}
     assert details.get("process_state") == "exited", envelope.raw
-    assert details.get("retryable") is False, envelope.raw
+    if error_code(envelope) == "STALE_REF":
+        assert details.get("retryable") is False, envelope.raw
     assert error.get("disposition") == {"delivery": "not_delivered", "retry": "safe"}, envelope.raw
     assert "recovery" not in error, envelope.raw
     ctx.restored("proc.calculator", read())

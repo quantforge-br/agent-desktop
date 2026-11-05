@@ -1,6 +1,6 @@
 import time
 
-from oracle import atspi_raw as raw, proc, x11
+from oracle import atspi_raw as raw, hyprland, proc, x11
 from oracle.gsettings import tool
 from runner.session import TierUnavailable
 
@@ -34,7 +34,11 @@ def close_overview(tier):
 
 
 def probe(tier, app):
-    if tier.name in ("x11-mutter", "wayland"):
+    if tier.name == "hyprland":
+        if not hyprland.healthy(tier):
+            raise RuntimeError("Hyprland is not answering its IPC or reports configuration errors")
+        raw.registry(tier)
+    elif tier.name in ("x11-mutter", "wayland"):
         active = x11.overview_active(tier)
         if type(active) is not bool:
             raise RuntimeError("Overview state is unknown")

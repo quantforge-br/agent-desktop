@@ -1,6 +1,7 @@
 import contextlib
 import json
 import time
+from pathlib import Path
 
 from oracle.atspi_raw import poll
 from oracle.proc import members
@@ -55,8 +56,15 @@ def open_raw(tree):
     require(menu.do_action("showMenu") or menu.do_action("press") or menu.do_action("click"))
 
 
+def product_app_name(ctx, app):
+    """The name the product lists the app under: on the nested Hyprland a Python script is its interpreter's executable name."""
+    if ctx.tier.name != "hyprland":
+        return app.name
+    return (Path("/proc") / str(app.pid) / "exe").resolve().name
+
+
 def wait_menu(ctx, app, opened, *, timeout=2000, code=None):
-    return command(ctx, ["wait", "--menu" if opened else "--menu-closed", "--app", app.name,
+    return command(ctx, ["wait", "--menu" if opened else "--menu-closed", "--app", product_app_name(ctx, app),
                          "--timeout", str(timeout)], code=code)
 
 

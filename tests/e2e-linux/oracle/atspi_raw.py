@@ -12,13 +12,14 @@ from runner.session import Tier
 
 ACCESSIBLE = "org.a11y.atspi.Accessible"
 ROOT = "/org/a11y/atspi/accessible/root"
+LABELLED_BY = 2
 _DEADLINE = ContextVar("oracle_deadline", default=None)
 STATE_BITS = {
     1: "ACTIVE", 4: "CHECKED", 5: "COLLAPSED", 6: "DEFUNCT", 8: "ENABLED",
     9: "EXPANDABLE", 10: "EXPANDED", 11: "FOCUSABLE", 12: "FOCUSED",
     14: "HORIZONTAL", 16: "MODAL", 20: "PRESSED", 22: "SELECTABLE",
     23: "SELECTED", 24: "SENSITIVE", 25: "SHOWING", 29: "VERTICAL",
-    30: "VISIBLE", 31: "MANAGES_DESCENDANTS", 41: "CHECKABLE",
+    30: "VISIBLE", 31: "MANAGES_DESCENDANTS", 41: "CHECKABLE", 42: "HAS_POPUP",
 }
 
 
@@ -131,16 +132,38 @@ class RawNode:
         count = self.get_property("org.a11y.atspi.Text", "CharacterCount")
         return self.invoke("org.a11y.atspi.Text", "GetText", "(ii)", (0, count))[0]
 
+    def label(self) -> str:
+        """The accessible name, or the text of the node that labels this one.
+
+        GTK 4.24 leaves a menu item's own name blank and names it by a labelled-by
+        relation whose target holds the visible label as its Text.
+        """
+        own = self.name
+        if own:
+            return own
+        for kind, targets in self.invoke(ACCESSIBLE, "GetRelationSet")[0]:
+            if kind != LABELLED_BY:
+                continue
+            for bus, path in targets:
+                target = RawNode(self.connection, bus or self.bus, path)
+                text = target.name or target.text()
+                if text:
+                    return text
+        return ""
+
     def value(self) -> float | None:
         if "org.a11y.atspi.Value" not in self.interfaces():
             return None
         return float(self.get_property("org.a11y.atspi.Value", "CurrentValue"))
 
     def do_action(self, name: str) -> bool:
+        # Qt 6 names its actions in words ("Show Menu"), GTK in one token ("showMenu").
+        def token(text: str) -> str:
+            return "".join(text.split()).casefold()
         count = self.get_property("org.a11y.atspi.Action", "NActions")
         for index in range(count):
             actual = self.invoke("org.a11y.atspi.Action", "GetName", "(i)", (index,))[0]
-            if actual.casefold() == name.casefold():
+            if token(actual) == token(name):
                 return self.invoke("org.a11y.atspi.Action", "DoAction", "(i)", (index,))[0]
         return False
 
@@ -155,11 +178,23 @@ def owner_pid(node: RawNode) -> int:
                 "org.freedesktop.DBus", "GetConnectionUnixProcessID", "(s)", (node.bus,))[0]
 
 
+def owner_is_private(tier: Tier, pid: int) -> bool:
+    """A bus owner of the private session: by its environment, or for a client that hides it, by the private compositor."""
+    from oracle.proc import facts
+    env = facts(pid)[3]
+    if env.get("XDG_RUNTIME_DIR") == str(tier.runtime_dir):
+        return True
+    if env or tier.name != "hyprland":
+        return False
+    from oracle import hyprland
+    return pid in {view.pid for view in hyprland.windows(tier)}
+
+
 def app_root(tier: Tier, owner_name: str) -> RawNode:
     from oracle.proc import facts, may_match
     if re.fullmatch(r":\d+\.\d+", owner_name):
         node = RawNode(connect(tier.a11y_bus_address), owner_name, ROOT)
-        if facts(owner_pid(node))[3].get("XDG_RUNTIME_DIR") != str(tier.runtime_dir):
+        if not owner_is_private(tier, owner_pid(node)):
             raise LookupError(f"owner {owner_name!r} is not private")
         return node
     matches = []
@@ -168,8 +203,8 @@ def app_root(tier: Tier, owner_name: str) -> RawNode:
         pid = None
         try:
             pid = owner_pid(node)
-            _, _, process_name, env = facts(pid)
-            if env.get("XDG_RUNTIME_DIR") == str(tier.runtime_dir) and node.name == owner_name:
+            _, _, process_name, _ = facts(pid)
+            if owner_is_private(tier, pid) and node.name == owner_name:
                 matches.append(node)
         except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
@@ -180,8 +215,7 @@ def app_root(tier: Tier, owner_name: str) -> RawNode:
                 raise
             if not unresponsive(error) and "NameHasNoOwner" not in str(error):
                 raise
-    matches = [node for node in matches
-               if facts(owner_pid(node))[3].get("XDG_RUNTIME_DIR") == str(tier.runtime_dir)]
+    matches = [node for node in matches if owner_is_private(tier, owner_pid(node))]
     if len(matches) != 1:
         raise LookupError(f"expected one private owner {owner_name!r}, found {len(matches)}")
     return matches[0]

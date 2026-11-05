@@ -64,7 +64,9 @@ def main(argv: list[str]) -> int:
     timer.start(20)
     offscreen = QLineEdit(container)
     offscreen.setAccessibleName("Offscreen entry")
-    offscreen.setGeometry(10, 800, 200, 30)
+    # Far past any frame a compositor gives the window: a tiling compositor fills the screen, and an
+    # entry only just below the frame is too close to its edge for the product to call it off screen.
+    offscreen.setGeometry(10, 2000, 200, 30)
     offscreen.show()
     window.resize(520, 260)
     window.show()

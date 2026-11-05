@@ -2,16 +2,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from typing import Callable
+from runner.legs_hyprland import ROWS as HYPRLAND_ROWS, SHARED as HYPRLAND_SHARED
 
-TIER_NAMES = ("x11-openbox", "x11-mutter", "wayland")
+TIER_NAMES = ("x11-openbox", "x11-mutter", "wayland", "hyprland")
 MODE_NAMES = ("headless", "headed")
-ORACLE_NAMES = ("atspi", "gsettings", "x11", "proc", "pixels", "clipboard", "dbus", "applog")
+ORACLE_NAMES = ("atspi", "gsettings", "x11", "proc", "pixels", "clipboard", "dbus", "applog", "hyprland")
 DISPOSITIONS = ("pass", "asserted-refusal", "owner-decision", "outstanding")
 
 X11 = ("x11-openbox", "x11-mutter")
 OPENBOX_ONLY = ("x11-openbox",)
 MUTTER_ONLY = ("x11-mutter",)
 WAYLAND_ONLY = ("wayland",)
+HYPRLAND_ONLY = ("hyprland",)
 ALL_TIERS = TIER_NAMES
 HEADLESS = ("headless",)
 HEADED = ("headed",)
@@ -222,6 +224,13 @@ REGISTRY += tuple(
     for suffix in ("", "_windows")
 )
 
+_UNKNOWN_SHARED = set(HYPRLAND_SHARED) - {leg.id for leg in REGISTRY}
+if _UNKNOWN_SHARED:
+    raise ValueError(f"hyprland shares unregistered legs: {sorted(_UNKNOWN_SHARED)}")
+REGISTRY = tuple(replace(leg, tiers=leg.tiers + HYPRLAND_ONLY)
+                 if leg.id in HYPRLAND_SHARED and HYPRLAND_ONLY[0] not in leg.tiers else leg
+                 for leg in REGISTRY)
+REGISTRY += tuple(Leg(row[0], row[1], row[2], HYPRLAND_ONLY, *row[3:]) for row in HYPRLAND_ROWS)
 _BY_ID = {leg.id: leg for leg in REGISTRY}
 if len(_BY_ID) != len(REGISTRY):
     raise ValueError("duplicate leg id in the registry")

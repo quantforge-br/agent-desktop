@@ -219,6 +219,9 @@ def main(argv):
             buffer.set_text("")
             link.set_visited(False)
             expander.set_expanded(False)
+            # GTK 4 drops the stale "Page 2" accessible the first time page 2 is shown, so every reset
+            # passes through it and the tree each row starts from is the one a switch leaves behind.
+            tabs.set_current_page(1)
             tabs.set_current_page(0)
             rows.unselect_all()
             scroll.get_vadjustment().set_value(0)

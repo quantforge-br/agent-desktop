@@ -34,26 +34,47 @@ def qualified_refs_survive_snapshots(ctx: LegContext) -> None:
         ctx.restored("atspi", display(tree))
 
 
+SESSION_HELPERS = ("xdg-desktop-portal", "kwin")
+
+
+def app_buses(ctx) -> list[str]:
+    """Registered application buses; on Hyprland the portal and compositor helpers register and leave on their own schedule."""
+    result = []
+    for item in raw.registry(ctx.tier):
+        if ctx.tier.name == "hyprland":
+            try:
+                if item.name.startswith(SESSION_HELPERS):
+                    continue
+            except Exception:
+                continue
+        result.append(item.bus)
+    return result
+
+
 @implementation("observation.stale_ref_after_app_killed")
 def stale_ref_after_app_killed(ctx: LegContext) -> None:
     baseline = members(ctx.tier.runtime_dir)
-    ctx.before("atspi", [item.bus for item in raw.registry(ctx.tier)])
+    ctx.before("atspi", app_buses(ctx))
     app = apps.launch(ctx.tier, "Calculator")
     try:
         target = ref(ctx, app, role="button", name="7")
         apps.stop(app)
-        require(raw.poll(lambda: app.owner_names[0] not in
-                         [item.bus for item in raw.registry(ctx.tier)], 3),
-                "dead owner remains registered")
-        after = [item.bus for item in raw.registry(ctx.tier)]
-        command(ctx, ["click", target, "--timeout-ms", "0"],
-                code=("STALE_REF", "ELEMENT_NOT_FOUND"))
-        require([item.bus for item in raw.registry(ctx.tier)] == after)
+        require(raw.poll(lambda: app.owner_names[0] not in app_buses(ctx), 3), "dead owner remains registered")
+        after = app_buses(ctx)
+        # No same-named process outlives the app on Hyprland, so the exited-process classification is APP_NOT_FOUND there.
+        codes = ("STALE_REF", "ELEMENT_NOT_FOUND") + (("APP_NOT_FOUND",) if ctx.tier.name == "hyprland" else ())
+        envelope = command(ctx, ["click", target, "--timeout-ms", "0"], code=codes)
+        error = envelope.error or {}
+        if error.get("code") == "APP_NOT_FOUND":
+            require((error.get("details") or {}).get("process_state") == "exited", envelope.raw)
+            require(error.get("disposition") == {"delivery": "not_delivered", "retry": "safe"}, envelope.raw)
+            require(envelope.exit_code == 1, envelope.raw)
+        require(app_buses(ctx) == after)
         ctx.after("atspi", after)
     finally:
         apps.stop(app)
         changed(lambda: members(ctx.tier.runtime_dir), baseline)
-        ctx.restored("atspi", [item.bus for item in raw.registry(ctx.tier)])
+        ctx.restored("atspi", app_buses(ctx))
 
 
 def stale_verdict(envelope, display_before: str, display_after: str) -> list[str]:
@@ -102,7 +123,10 @@ def stale_ref_after_ui_change(ctx: LegContext) -> None:
 
 
 def preferences_showing(tree) -> bool:
-    return any("SHOWING" in node.states for node in tree.find(name="Preferences"))
+    if any("SHOWING" in node.states for node in tree.find(name="Preferences")):
+        return True
+    return any("SHOWING" in node.states and node.label() == "Preferences"
+               for node in tree.find(role=35))
 
 
 @implementation("observation.selector_wait_resolves")

@@ -37,6 +37,7 @@ def unsupported(error):
     return ((error.get("code") == "ACTION_NOT_SUPPORTED" and
              (details.get("kind") in ("selection_index_unproven", "native_popup_requires_input") or
               details.get("semantic_verb") == "absent")) or
+            (error.get("code") == "AMBIGUOUS_TARGET" and details.get("kind") == "identity_not_unique") or
             (error.get("code") == "POLICY_DENIED" and
              (details.get("kind") == "pointer_required" or
               any(check.get("check") == "supported_action" and check.get("status") == "fail"
@@ -95,11 +96,17 @@ def fresh(ctx, app, original):
     return same_ref(snapshot(ctx, app), original)
 
 
-def act(ctx, node, action, value=None):
+def act(ctx, node, action, value=None, *, headed=False):
     argv = [action, node["ref_id"]]
     if value is not None:
         argv.append(str(value))
-    return ctx.product(argv, headed=False)
+    return ctx.product(argv, headed=headed)
+
+
+def needs_pointer(error):
+    """A headless refusal that names --headed as the cure: the caller follows it, as an agent would."""
+    return bool(error) and error.get("code") == "POLICY_DENIED" and \
+        error.get("details", {}).get("kind") == "pointer_required"
 
 
 @contextlib.contextmanager
@@ -203,6 +210,8 @@ def prepare(ctx, app, tree, node, action):
     opposite = {"check": "uncheck", "uncheck": "check", "expand": "collapse", "collapse": "expand"}
     if action in opposite:
         response = act(ctx, node, opposite[action])
+        if needs_pointer(response.error):
+            response = act(ctx, node, opposite[action], headed=True)
         if unsupported(response.error):
             raise NotImplementedError(f"{action} not exercised: setup {opposite[action]} refused: {response.error}")
         if name == "zoo-menubutton":
@@ -214,6 +223,17 @@ def prepare(ctx, app, tree, node, action):
         require(poll(lambda: (bit in target.states) == (action in ("uncheck", "collapse")), 3),
                 f"could not prepare {action} on {name}")
         return fresh(ctx, app, node)
+    if action == "select" and node.get("role") == "option" and name in ("Alpha", "Bravo", "Charlie"):
+        # Selecting the choice already shown changes nothing to observe, so move the combo off it first.
+        combos = [n for n in ref_nodes(snapshot(ctx, app)) if n.get("role") == "combobox"]
+        if len(combos) == 1 and (combos[0].get("value") or combos[0].get("name")) == name:
+            other = "Bravo" if name == "Alpha" else "Alpha"
+            response = act(ctx, combos[0], "select", other)
+            if needs_pointer(response.error):
+                response = act(ctx, combos[0], "select", other, headed=True)
+            require(response.ok, f"could not move the combo off {name}: {response.error}")
+            return fresh(ctx, app, node)
+        return node
     if name in ("zoo-radio-a", "zoo-radio-b", "zoo-tab-a", "zoo-tab-b",
                 "zoo-row-1", "zoo-row-2", "zoo-row-3") and node.get("role") != "tablist" and selected(tree, name):
         if name.startswith("zoo-row-"):
@@ -223,6 +243,8 @@ def prepare(ctx, app, tree, node, action):
         other_node = named(snapshot(ctx, app), other, node.get("role"))
         if "Select" in other_node.get("available_actions", ()):
             response = act(ctx, other_node, "select", other)
+            if needs_pointer(response.error):
+                response = act(ctx, other_node, "select", other, headed=True)
         else:
             response = act(ctx, other_node, "click")
         if unsupported(response.error):
@@ -315,6 +337,9 @@ def refs(ctx):
                             value = children[0].name
                         before, log_before = raw_state(tree), events(path)
                         response = act(ctx, node, action, value)
+                        headed = needs_pointer(response.error)
+                        if headed:
+                            response = act(ctx, node, action, value, headed=True)
 
                         def landed():
                             return all(effect(tree, node, action, value, before,
@@ -337,7 +362,7 @@ def refs(ctx):
                         verdict = row_verdict(expected, succeeded=response.ok, refused=refused, log_effect=log_effect,
                                               raw_effect=raw_effect, log_unchanged=log_after == log_before,
                                               raw_unchanged=after == before)
-                        row["observed"].append(dict(action=action, refused=refused,
+                        row["observed"].append(dict(action=action, refused=refused, headed=headed,
                                                     log=log_effect, raw=raw_effect))
                         if verdict == "fail":
                             row["verdict"] = "fail"

@@ -193,7 +193,7 @@ class SemanticRestorationTests(unittest.TestCase):
 
 class RegistryRestorationTests(unittest.TestCase):
     def test_stale_reference_waits_for_owner_unregistration_after_process_exit(self):
-        tier = SimpleNamespace(runtime_dir=Path("/private/test"), display=None)
+        tier = SimpleNamespace(name="x11-openbox", runtime_dir=Path("/private/test"), display=None)
         app = SimpleNamespace(owner_names=[":1.8"])
         ctx = LegContext(tier, "headless", legs.leg_by_id("observation.stale_ref_after_app_killed"),
                          member_reader=lambda _: frozenset())

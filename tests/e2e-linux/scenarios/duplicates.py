@@ -1,4 +1,4 @@
-from oracle import atspi_raw as raw, x11
+from oracle import atspi_raw as raw, hyprland, x11
 from runner import apps
 from runner.helper import (command, managed, ref, require, root, snapshot)
 from runner.legs import implementation
@@ -11,6 +11,11 @@ def focus_exact(ctx, app):
     require(raw.poll(lambda: any("ACTIVE" in node.states for node in tree.children()
                                 if node.role in (16, 23, 69)), 2.5),
             "focus did not activate the addressed frame")
+    if ctx.tier.name == "hyprland":
+        # No X server and no xprop: the compositor names the focused client and its process.
+        address = raw.poll(lambda: hyprland.active_address(ctx.tier), 2.5)
+        require(address and hyprland.view_at(ctx.tier, address).pid == app.pid, "another process got focus")
+        return
     active = x11.active_window(ctx.tier)
     require(active is not None)
     from oracle.gsettings import tool
@@ -47,9 +52,12 @@ def main_menu_nodes_separate(ctx: LegContext) -> None:
         require({43, 62}.issubset({item.role for item in raw_nodes}))
         evidence = [(item.path, item.role) for item in raw_nodes]
         ctx.before("atspi", evidence)
-        targets = [ref(ctx, app, role=role, name="Main Menu") for role in ("menubutton", "switch")]
+        # A push button reads as a menubutton only when the toolkit marks it HAS_POPUP; the toggle reads as a switch.
+        push = next(item for item in raw_nodes if item.role == 43)
+        roles = ("menubutton" if "HAS_POPUP" in push.states else "button", "switch")
+        targets = [ref(ctx, app, role=role, name="Main Menu") for role in roles]
         require(len(set(targets)) == 2)
-        for target, role in zip(targets, ("menubutton", "switch")):
+        for target, role in zip(targets, roles):
             response = command(ctx, ["get", target, "--property", "role"], app)
             require(response.data["value"] == role)
         after = [(item.path, item.role) for item in tree.find(name="Main Menu")]

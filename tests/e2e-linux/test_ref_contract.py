@@ -64,6 +64,10 @@ class RefContractTests(unittest.TestCase):
             self.assertFalse(unsupported(dict(error, code=code)))
         self.assertFalse(unsupported(dict(error, details={})))
         self.assertFalse(unsupported(dict(error, disposition={"delivery": "delivery_uncertain"})))
+        twin = {"code": "AMBIGUOUS_TARGET", "details": {"kind": "identity_not_unique"},
+                "disposition": {"delivery": "not_delivered"}}
+        self.assertTrue(unsupported(twin))
+        self.assertFalse(unsupported(dict(twin, disposition={"delivery": "delivery_uncertain"})))
         for log, raw in ((False, True), (True, False)):
             self.assertEqual(row_verdict("refuse", succeeded=False, refused=unsupported(error), log_effect=False,
                                          raw_effect=False, log_unchanged=log, raw_unchanged=raw), "fail")

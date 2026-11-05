@@ -41,6 +41,14 @@ from scenarios import controlled_targets
 from scenarios import gaps_decisions
 from scenarios import error_contract
 from scenarios import batch_contract
+from scenarios import hyprland_apps
+from scenarios import hyprland_notifications
+from scenarios import hyprland_keys
+from scenarios import hyprland_misc
+from scenarios import hyprland_observe
+from scenarios import hyprland_pointer
+from scenarios import hyprland_semantic
+from scenarios import hyprland_windows
 
 __all__ = [
     "batch_contract",
@@ -50,6 +58,14 @@ __all__ = [
     "error_contract",
     "events",
     "headed_actions",
+    "hyprland_apps",
+    "hyprland_notifications",
+    "hyprland_keys",
+    "hyprland_misc",
+    "hyprland_observe",
+    "hyprland_pointer",
+    "hyprland_semantic",
+    "hyprland_windows",
     "identity",
     "launch",
     "lifecycle",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 
 from oracle import atspi_raw as raw
 from runner.helper import activate, changed, managed, nodes, require, root, snapshot
@@ -9,13 +10,28 @@ from scenarios.menus import _toggle
 
 
 def dialogs(ctx, app):
-    return [node for node in root(ctx, app).children()
-            if "SHOWING" in node.states and (node.role == 16 or "MODAL" in node.states)]
+    def showing(nodes):
+        return [node for node in nodes
+                if "SHOWING" in node.states and (node.role == 16 or "MODAL" in node.states)]
+
+    # A dialog window is a root child; a libadwaita sheet sits inside the frame, so only a walk reaches it.
+    return showing(root(ctx, app).children()) or showing(root(ctx, app).walk())
+
+
+def vanished(error: Exception) -> bool:
+    """A node that left the tree between the walk and the read, as a closing dialog's nodes do."""
+    return any(mark in str(error) for mark in ("UnknownObject", "does not exist", "No such interface"))
 
 
 def dialog_state(ctx, app):
-    return tuple(sorted((node.role, node.name, "MODAL" in node.states)
-                        for node in dialogs(ctx, app)))
+    for attempt in range(10):
+        try:
+            return tuple(sorted((node.role, node.name, "MODAL" in node.states)
+                                for node in dialogs(ctx, app)))
+        except Exception as error:
+            if not vanished(error) or attempt == 9:
+                raise
+            time.sleep(0.1)
 
 
 def about_items(ctx, app):
