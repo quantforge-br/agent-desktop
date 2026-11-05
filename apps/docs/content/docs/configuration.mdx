@@ -42,8 +42,8 @@ Global flags work before or after the command name, so `agent-desktop --headed c
 **Results.**
 
 - `--wait-for` succeeds with snapshot data (`snapshot_id`, `ref_count`, `tree`, and so on) plus `elapsed_ms` and `matched_selector`. For an action, the action's own report moves under `data.after_action`.
-- `--wait-for-gone` succeeds with `matched_selector`, `gone: true`, `target_absent: true`, and `elapsed_ms`, with the action's report under `after_action`.
-- On expiry the command fails with `TIMEOUT`, `details.kind: "wait_timeout"`, `details.selector`, and `details.timeout_ms`. After an action, `details.after_action` holds its report, and the error keeps the action's own delivery disposition, so a timeout does not make the action safe to repeat.
+- `--wait-for-gone` succeeds with `matched_selector`, `gone: true`, `target_absent: true`, and `elapsed_ms`, with the action's report under `after_action`. It succeeds as soon as no element matches the selector, including a selector that never matched anything, so a misspelled selector succeeds at once; `target_absent` does not mean the window or app closed.
+- On expiry the command fails with `TIMEOUT`, `details.kind: "wait_timeout"`, `details.selector`, `details.timeout_ms`, and `details.gone`, which is `true` for a `--wait-for-gone` wait: it names the mode, and does not report an outcome (the element was still there). After an action, `details.after_action` holds its report, and the error keeps the action's own delivery disposition, so a timeout does not make the action safe to repeat.
 
 ```bash
 agent-desktop click @s8f3k2p9:e5 --wait-for ":Saved" --wait-timeout 5000

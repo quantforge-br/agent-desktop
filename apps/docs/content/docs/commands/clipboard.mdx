@@ -51,13 +51,13 @@ agent-desktop clipboard-set --file-url /tmp/a.txt --file-url /tmp/b.txt
     <tr><th>Flag or argument</th><th>Default</th><th>Meaning</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>TEXT</code></td><td>empty text</td><td>Text to write.</td></tr>
+    <tr><td><code>TEXT</code></td><td>none</td><td>Text to write. An explicit empty string writes empty text.</td></tr>
     <tr><td><code>--image PATH</code></td><td>none</td><td>A regular PNG file of at most 64 MiB.</td></tr>
     <tr><td><code>--file-url PATH</code></td><td>none</td><td>A file path to write as a file reference. Repeatable. Every path must exist.</td></tr>
   </tbody>
 </table>
 
-One call writes one representation: `--file-url` wins over `--image`, which wins over `TEXT`. The result is an [OperationReport](/desktop/json-output#operationreport) plus the written `type`:
+Passing none of `TEXT`, `--image` and `--file-url` is `INVALID_ARGS`; use `clipboard-clear` to empty the clipboard. One call writes one representation: `--file-url` wins over `--image`, which wins over `TEXT`. The result is an [OperationReport](/desktop/json-output#operationreport) plus the written `type`:
 
 ```json
 {

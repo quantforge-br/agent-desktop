@@ -163,10 +163,22 @@ was started by `dms run`. GNOME Shell keeps precedence when its name is owned.
   shows now; a `--window-id` taken from `open-system-surface` must still be
   that surface's window, and one from a shell that has since restarted is
   `STALE_REF`.
-- **Windows.** `list-windows` lists the shell's panels as untitled
-  `quickshell` windows without `bounds`, beside any titled window the shell
-  opens. `close-app` refuses the shell itself with `INVALID_ARGS`, as a
-  protected session process, with or without `--force`.
+- **Windows.** `list-windows` lists the shell's panels as `quickshell`
+  windows, beside any titled window the shell opens. A panel is a Wayland
+  layer surface, not a Hyprland client, so it takes its `bounds` from the
+  layer Hyprland maps at the panel's size (`j/layers`), not from the toolkit,
+  whose rectangles are relative to the panel. The dock at the bottom of a
+  1280x800 output is listed at `y: 726`. The shell's own panels are titled as
+  `open-system-surface` names them (`Dock`, `Top bar`); a layer the shell does
+  not name, such as its wallpaper layer, gets bounds and an empty title. Two
+  windows that could both be one layer, or two layers of one size, leave the
+  window without `bounds` rather than guess. `snapshot --surface dock
+  --include-bounds` then gives item bounds on screen, and `mouse-click --xy`
+  aimed at them works. A headed ref click on a panel item refuses with
+  `WINDOW_NOT_FOUND`, cause `hyprland_client_missing`, `not_delivered`,
+  because a layer has no Hyprland client to focus. `close-app` refuses the
+  shell itself with `INVALID_ARGS`, as a protected session process, with or
+  without `--force`.
 - **Notifications.** The center exists in the accessibility tree only while it
   is open, so `list-notifications` and `wait --notification` need it open
   already or `--headed`; it is opened over IPC, groups are expanded for the
@@ -299,10 +311,14 @@ Single-item `dismiss-notification` and `notification-action` require
 - `dismiss-all-notifications` closes each entry in scope through its own header
   buttons, one at a time, and counts an entry as dismissed only when its own
   object has left the list. It never presses the footer button, which has no
-  property but its place. `--app` limits the scope. A headed empty dismiss-all
-  returns zero without opening the message list. `dismiss-all-notifications`
-  returns `data.dismissed_count`, and `data.failures` with `data.failed_count`
-  for entries that could not be closed.
+  property but its place. `--app` limits the scope. On GNOME Shell a headed
+  empty dismiss-all returns zero without opening the message list; on dux-shell
+  it still opens and closes the center (about 3.4 s measured) and returns zero.
+  A card that does not react stops the sweep: the first failure reads `the
+  sweep stopped; N more notifications were not attempted`, and the call is
+  still `ok: true`. The result carries `data.dismissed_count`, and
+  `data.failures` with `data.failed_count` for entries that could not be
+  closed; re-list and call again for the rest.
 - For `notification-action`, pass a name from the row's `actions` list, for
   example `Open`. The match ignores case. A missing action is
   `ACTION_NOT_SUPPORTED` with `available_actions`. If the entry's buttons are
@@ -358,6 +374,16 @@ root, with `com.canonical.dbusmenu` entries as virtual children. Titles,
 including `System` and duplicate titles, never bind a native panel node. A
 `Passive` item remains in the snapshot with `states: [hidden]`, and a click on
 it refuses with `ACTION_FAILED` before any call is sent.
+
+An empty tray is a statement about the watcher, not about the bar. The tree is
+the group `System tray` with `ref_count: 0` and `complete: true` when the
+watcher has no registered item. The dux-shell top bar draws its own status
+widgets (clock, resource meters, the bell, battery, network and audio
+indicators) that are not StatusNotifier items, and its accessibility window
+has no children, so none of them is in this snapshot. Measured on a dux-shell
+session: `RegisteredStatusNotifierItems` was empty while the bar showed those
+widgets. This surface cannot read them; read their place from a `screenshot`
+and aim a headed `mouse-click --xy` at it.
 
 - These refs are virtual protocol identities, not AT-SPI elements. Native text
   getters can return `INVALID_ARGS`, `invalid_native_handle`. Bounds, placement

@@ -82,6 +82,8 @@ A failed check list appears in `error.details.checks`, each with a `status` of `
 }
 ```
 
+A refusal that waiting cannot fix (`POLICY_DENIED` or `ACTION_NOT_SUPPORTED`) is decided before stability matters, so its message and `checks` list leave out a `stable` check that never had time to settle.
+
 `receives_events` fails with an `occluder` (`role`, `name`, `bounds`) when another element covers the target. To wait for readiness on its own, use [`wait --element REF --predicate actionable`](/desktop/commands/wait#wait).
 
 ## Errors shared by ref commands

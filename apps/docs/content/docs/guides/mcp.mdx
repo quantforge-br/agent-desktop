@@ -33,7 +33,7 @@ Each tool is one command, named `desktop_` plus the command with hyphens as unde
 
 A tool's arguments are its command's arguments, with hyphens as underscores: `snapshot --app Finder -i` is `desktop_snapshot` with `{ "app": "Finder", "interactive_only": true }`. Positional arguments use their names too, such as `ref_id` for `click`. A null argument counts as omitted.
 
-The tool list is read from the CLI's own command definitions, so it always matches the installed binary.
+The tool list is read from the CLI's own command definitions, so it always matches the installed binary. Call `tools/list` for the exact names. A `tools/call` with a bare command name such as `list-apps` fails with `-32602 Unknown tool` and names the matching `desktop_` tool.
 
 ## Apply global flags once
 

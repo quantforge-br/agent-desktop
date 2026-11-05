@@ -35,7 +35,7 @@ agent-desktop wait --event KIND [--app NAME] [--window TITLE] [--window-id ID]
     <tr><td><code>--menu</code>, <code>--menu-closed</code></td><td>off</td><td>Wait until a menu surface is open, or dismissed.</td></tr>
     <tr><td><code>--notification</code></td><td>off</td><td>Wait until a new notification arrives.</td></tr>
     <tr><td><code>--event KIND</code></td><td>none</td><td>Wait for a lifecycle signal: <code>window-opened</code>, <code>window-closed</code>, <code>app-launched</code>, <code>app-terminated</code>, <code>focus-changed</code>, <code>surface-appeared</code>, or <code>surface-dismissed</code>.</td></tr>
-    <tr><td><code>--window-id ID</code></td><td>none</td><td>Narrow <code>window-opened</code>, <code>window-closed</code>, or <code>focus-changed</code> to one window.</td></tr>
+    <tr><td><code>--window-id ID</code></td><td>none</td><td>Narrow <code>window-opened</code>, <code>window-closed</code>, or <code>focus-changed</code> to one window. With <code>--app</code>, a window of that app also picks the one process the wait follows, so two processes that share the name (two <code>zenity</code> dialogs) do not make it <code>AMBIGUOUS_TARGET</code>. It is only valid with <code>--event</code>; on any other mode it is <code>INVALID_ARGS</code>.</td></tr>
     <tr><td><code>--app NAME</code></td><td>none</td><td>Scope a window, text, menu, notification, or event wait to one application. Element and time waits ignore it.</td></tr>
     <tr><td><code>--timeout MS</code></td><td><code>30000</code></td><td>Timeout for every mode except <code>MS</code>, at most 86400000.</td></tr>
   </tbody>
@@ -169,6 +169,6 @@ A wait that runs out of time returns `TIMEOUT` with `details.kind: "wait_timeout
 }
 ```
 
-Element waits carry `ref` and `last_observed`; text waits carry `text_chars` and `expected_count` but not the text; event waits carry `baseline_counts`; any mode can carry `last_error`. Other errors: `INVALID_ARGS` for a bad mode combination or a bare ref, the ref errors for `--element`, `APP_UNRESPONSIVE` when the app stops answering, and `PERM_DENIED`.
+Element waits carry `ref` and `last_observed`; window waits carry the `title` they were given and the titles they saw; selector waits (`--wait-for`) carry the `selector`; text and notification waits carry only a character count (`text_chars`), never the text you passed, so that error is safe to log; the message of a window, text or selector wait gives only a character count too. Event waits carry `baseline_counts`; any mode can carry `last_error`. The `suggestion` asks you to check that the target exists and is spelled as `list-windows`, `list-apps` or `snapshot` show it. Other errors: `INVALID_ARGS` for a bad mode combination or a bare ref, the ref errors for `--element`, `APP_UNRESPONSIVE` when the app stops answering, and `PERM_DENIED`.
 
 Platform limits: see [macOS](/desktop/platforms/macos), [Windows](/desktop/platforms/windows), and [Linux](/desktop/platforms/linux).

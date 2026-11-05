@@ -27,7 +27,7 @@ Start with `agent-desktop status` and `agent-desktop list-apps`.
 | `ACTION_NOT_SUPPORTED`, `native_window_unproven` | The display server did not answer the native window read while the listing ran. `launch` reads again until its timeout before it answers this. Run `list-windows` again once the display has settled. A window of another process whose native surfaces cannot be classified stays listed and never refuses the listing |
 | `STALE_REF` with `kind: resolution_identity_unknown`, or a click timeout with that `last_report` | Strict resolution could not prove a menu ref's live identity. Do not infer a hung app from a readable menu; see the shell reference |
 | `APP_UNRESPONSIVE` | The app is stopped (`SIGSTOP`) or its main loop is blocked. Resume it; `close-app --force` ends it |
-| `STALE_REF` | The element is gone or no longer matches. `details.kind: saved_ref_absent` means no live element matched the stored role and stable fields, so take a fresh snapshot; `retained_object_stale` never appears on Linux. `menu_closed` needs its opener reopened before a fresh menu snapshot; `resolve_target_destroyed` needs a replacement target; a menu or tray `resolve_no_candidate` is retryable |
+| `STALE_REF` | The element is gone or no longer matches. `details.kind: saved_ref_absent` means no live element matched the stored role and stable fields, or (`details.reason: ref_not_in_snapshot`) the ref is not in its snapshot, so take a fresh snapshot; `retained_object_stale` never appears on Linux. `menu_closed` needs its opener reopened before a fresh menu snapshot; `resolve_target_destroyed` needs a replacement target; a menu or tray `resolve_no_candidate` is retryable. A GTK3 combobox is named after its selected item and exposes no value, so after `select` its ref is `saved_ref_absent`: take a fresh snapshot before the next action on it |
 | `ACTION_NOT_SUPPORTED`, `selection_index_unproven` | The toolkit's selection indices cannot identify accessible rows safely. A headless select cannot map the row and refreshing cannot help. On X11 run `--headed select` with the same ref; see "Toolkit limits" |
 | `INTERNAL` "private file parent is accessible by group or other users" | The state root is group-writable or world-accessible. `chmod 700` it; see `references/bus-and-permissions.md` |
 
@@ -129,6 +129,11 @@ shows it.
 | Qt | `scroll-to` does not work: use `scroll --headed`. A `QLineEdit` context menu is not observable. The combo popup takes no semantic selection. A Qt process registers twice; the apps list shows one entry per process |
 | Chromium, Electron | `scroll-to` works through `ScrollTo`. `hit_test` answers unknown for an Electron host. Chromium needs the flag above; Electron needs none |
 
+GTK 4 bounds can also be offset from the drawn widget (zenity forms, libadwaita
+keypads), so a headed click aimed by `bounds` can hit a neighbour while still
+reporting `ok: true`. Prefer headless semantic actions and verify pointer
+effects; see "Pointer" under Hyprland in `references/display-servers-and-input.md`.
+
 GNOME Settings category rows expose no semantic activation action, and the list
 has hidden rows its accessible indices cannot see, so a headless `select` on
 `Settings categories` refuses without changing the selection. On X11,
@@ -178,9 +183,9 @@ D-Bus or X11 error.
 
 ## Commands that refuse by design
 
-- `key-down` and `key-up`: `ACTION_NOT_SUPPORTED`, `delivery: unknown`.
+- `key-down` and `key-up`: `ACTION_NOT_SUPPORTED`, `not_delivered` (retry `safe`).
   `mouse-down` and `mouse-up` are `POLICY_DENIED`, `not_delivered`, headless and
-  `ACTION_NOT_SUPPORTED` with `--headed`. No event is sent. Use `press` with
+  `ACTION_NOT_SUPPORTED`, `not_delivered`, with `--headed`. No event is sent. Use `press` with
   modifiers and `drag`.
 - `cursor-overlay` on Wayland: succeeds as a setting only. `enable` returns
   `data.rendered: false` and no overlay is drawn, so do not wait for one.

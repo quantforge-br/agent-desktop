@@ -92,3 +92,9 @@ agent-desktop skills get desktop   # the agent usage guide compiled into the bin
     <tr><td><a href="/desktop/commands/batch#batch"><code>batch</code></a></td><td>Run a bounded, sequential, non-atomic list of commands in one process.</td></tr>
   </tbody>
 </table>
+
+## Values that start with a dash
+
+A value that starts with `-` is read as a flag, so the parser answers `INVALID_ARGS` with `unexpected argument '-1' found` and a hint. Write an option value with `=`: `move-window --x=-100 --y=20`, `mouse-wheel --x=-100 --y=50`, `launch APP --arg=-x`. Put a positional value after `--`: `clipboard-set -- -x`. `type` and `set-value` accept text that starts with a dash as written, and `mouse-wheel --dx` and `--dy` accept negative numbers as written. `scroll` takes a `--direction` and an unsigned `--amount`; `--amount=-3` is rejected.
+
+`launch` takes exactly one positional argument, the app. Each argument for the launched app is a repeated `--arg=VALUE`.

@@ -104,13 +104,20 @@ Entries run one at a time through the same dispatch as the CLI, so each entry's 
   </thead>
   <tbody>
     <tr><td><code>results[]</code></td><td>One envelope per entry, with <code>index</code> and <code>execution</code> (<code>completed</code> or <code>not_started</code>). A <code>not_started</code> entry has <code>not_started_reason</code> and a <code>not_delivered</code> error.</td></tr>
-    <tr><td><code>total_entries</code>, <code>completed_entries</code>, <code>not_started_entries</code></td><td>Counts. Entries after a stop are counted in <code>not_started_entries</code> without a row.</td></tr>
+    <tr><td><code>total_entries</code>, <code>completed_entries</code>, <code>not_started_entries</code></td><td>Counts. <code>completed_entries</code> counts entries that ran, failed ones included, so it is not a success count; read each row's <code>ok</code>. Entries after a stop are counted in <code>not_started_entries</code> without a row.</td></tr>
     <tr><td><code>stopped</code></td><td>Present when the batch ended early: <code>reason</code> is <code>stop_on_error</code>, <code>deadline</code>, <code>output_limit</code>, or <code>pre_action_baseline_failed</code>, with the <code>index</code>.</td></tr>
   </tbody>
 </table>
 
 - **Deadline.** Before each entry the batch checks `--timeout-ms`. If it expired, that entry is `not_started` with reason `deadline` and the batch stops.
-- **Event waits.** When a `wait` entry with `event` follows another entry, the batch captures the event baseline before that earlier entry runs. If the capture fails, the earlier entry does not start (`pre_action_baseline_failed`).
+- **Event waits.** When a `wait` entry with `event` follows another entry, the batch captures the event baseline before that earlier entry runs, scoped the way the wait scopes itself. If the capture fails, the earlier entry does not start (`pre_action_baseline_failed`). That includes `--app` naming several processes with no `window_id` that picks one (`AMBIGUOUS_TARGET`), so give `window_id` when two processes share an app name, as two `zenity` dialogs do.
 - **Sessions.** An entry whose session ended before it starts is `not_started` with reason `session_ended`.
+
+To detect failure in a script, do not trust the top-level `ok` or the exit code. Check every row and the early-stop marker:
+
+```bash
+agent-desktop batch "$entries" --stop-on-error |
+  jq -e '.data.stopped == null and ([.data.results[].ok] | all)'
+```
 
 Refs in `args` must already exist when you write the array. A `snapshot` entry inside the batch creates refs you cannot name in later entries, so take the snapshot in a separate call.

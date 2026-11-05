@@ -5,13 +5,14 @@ App lifecycle, windows, notifications, clipboard, wait, batch, sessions, health.
 ## launch
 
 ```bash
-agent-desktop launch "System Settings"       # macOS display name
-agent-desktop launch "TextEdit" --activate
-agent-desktop launch "MyTool" --arg /tmp/notes.txt --env KEY=VALUE --no-attach
+agent-desktop launch "TextEdit" --activate      # macOS display name
+agent-desktop launch gnome-calculator           # Linux: command, desktop id or desktop entry Name
+agent-desktop launch "calc.exe"                 # Windows: executable name or absolute path
+agent-desktop launch "MyTool" --arg=/tmp/notes.txt --env KEY=VALUE --no-attach
 agent-desktop launch "Obsidian" --cdp
 ```
 
-`launch` returns once the process runs. The identifier differs by OS: the examples use macOS display names, and the platform skill names the form for its OS. By default it attaches to a running instance. `--no-attach` starts a fresh instance instead of attaching: on Windows it returns `ACTION_FAILED` if a matching app is already running; on macOS it launches a second instance alongside the running one. For an `--arg` value that starts with `-`, use `--arg=<value>`.
+`launch` returns once the process runs. The identifier differs by OS, so do not run an example from another OS verbatim: a macOS display name such as `"System Settings"` can resolve to a different installed app on Linux (a desktop entry `Name` match). The platform skill names the form for its OS. By default it attaches to a running instance. `--no-attach` starts a fresh instance instead of attaching: on Windows it returns `ACTION_FAILED` if a matching app is already running; on macOS it launches a second instance alongside the running one. `launch` takes exactly one positional argument, the app. Every argument for the app is a repeated `--arg=VALUE`: `launch zenity --list` is `INVALID_ARGS`, `launch zenity --arg=--list --arg=TRUE` works. Write `--arg=<value>` for a value that starts with `-`.
 
 The process running and the app showing a window are separate facts:
 
@@ -108,7 +109,7 @@ agent-desktop clipboard-clear
 
 - Formats: `text` (default), `auto` (file references, then image, then text), `image`, `file-urls`. Output is `{ "type": "text", "text": ... }`, `{ "type": "file_urls", ... }`, or `{ "type": "image", "path", "width", "height" }`. When the clipboard has nothing in that form: `{ "type": "<format>", "found": false }`.
 - Image bytes go to `--out`, or to a private file under the active session directory (or `~/.agent-desktop/tmp`).
-- `clipboard-set` writes one representation per call. `--file-url` and `--image` win over the positional text. Every `--file-url` path must exist, or `INVALID_ARGS`.
+- `clipboard-set` writes one representation per call. `--file-url` and `--image` win over the positional text. Every `--file-url` path must exist, or `INVALID_ARGS`. With no text, `--image` or `--file-url` it is `INVALID_ARGS` (use `clipboard-clear` to empty the clipboard; an explicit empty `""` still writes empty text).
 - A write that loses clipboard ownership mid-way reports `delivered_unverified`, not a false success.
 
 ## wait
@@ -132,7 +133,7 @@ Use `wait`, not a fixed sleep. `--timeout` defaults to 30000 ms. Modes:
 - **Menu.** `--menu` waits for a menu surface to open. `--menu-closed` waits for it to close.
 - **Event.** `--event` is one of `window-opened`, `window-closed`, `app-launched`, `app-terminated`, `focus-changed`, `surface-appeared`, `surface-dismissed`. It diffs a baseline taken at wait start against fresh reads, so you need no window id up front. `--window-id` and `--window` narrow it.
 
-For `wait --event` only, `--app` resolves once, at wait start, to one process instance. (`wait --window` filters by app name on every poll.) A later process of the same name is invisible to the wait. Two running instances return `AMBIGUOUS_TARGET`. When no app matches:
+For `wait --event` only, `--app` resolves once, at wait start, to one process instance. (`wait --window` filters by app name on every poll.) A later process of the same name is invisible to the wait. Two running instances return `AMBIGUOUS_TARGET`, unless `--window-id` names a window of that app: the window's process is then the one followed. In a `batch`, that error comes from the baseline capture, so the entry before the wait never starts. When no app matches:
 
 - `app-launched`, `window-opened`, `surface-appeared`: keep polling until the timeout. Use these when you race a launch.
 - `app-terminated`, `window-closed`, `surface-dismissed`: return `"found": true` with `"target_unresolved": true` at once. A misspelled `--app` gives the same answer, so check the name.
@@ -159,7 +160,7 @@ agent-desktop batch '[
 ]' --stop-on-error
 ```
 
-Batch runs entries in order in one process. It is not a transaction. Entries use the same typed commands, policy checks and dispatch as the CLI. Use `args`, not `params`. Unknown fields are rejected, and nested `batch` is rejected. Pass `--stop-on-error` to halt at the first failure. Each entry may carry `"session": "id"`, otherwise it inherits the top-level session. An entry whose session ended before dispatch is `not_started` with reason `session_ended`. An ended top-level session refuses the whole batch with `INVALID_ARGS` (`details.kind: session_ended`) before any entry runs. Snapshot args use `skeleton`, `root`, `interactive_only`.
+Batch runs entries in order in one process. It is not a transaction. Entries use the same typed commands, policy checks and dispatch as the CLI. Use `args`, not `params`. Unknown fields are rejected, and nested `batch` is rejected. Pass `--stop-on-error` to halt at the first failure. The batch itself is `ok: true` with exit code 0 even when entries fail: read `data.results[i].ok` for each entry and `data.stopped` for an early end (`jq -e '.data.stopped == null and ([.data.results[].ok] | all)'`). `data.completed_entries` counts entries that ran, failed ones included; entries that never ran are in `not_started_entries`. Each entry may carry `"session": "id"`, otherwise it inherits the top-level session. An entry whose session ended before dispatch is `not_started` with reason `session_ended`. An ended top-level session refuses the whole batch with `INVALID_ARGS` (`details.kind: session_ended`) before any entry runs. Snapshot args use `skeleton`, `root`, `interactive_only`.
 
 Wait entries use flat JSON keys matching the wait argument fields. For event waits, use `event` and optional `app`, `timeout` (milliseconds; defaults to 30000), `window`, and `window_id`. For example, the batch above waits up to five seconds for a new TextEdit window. `window` and `window_id` narrow only window lifecycle events (`window-opened`, `window-closed`, `focus-changed`); they do not scope text waits. In an action-then-event sequence, the batch captures the event baseline before the action, and does not start the action if that baseline read fails.
 

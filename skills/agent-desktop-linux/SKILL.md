@@ -90,7 +90,9 @@ semantic actions need no helper tool.
   element still matches. Uniqueness is counted over the whole window, not over
   the shallow tree a `--skeleton` or `--max-depth` snapshot presents, so a twin
   the shallow tree never showed still refuses the ref.
-  Position, size and value never count as identity, so a layout change does not
+  Position, size and value never count as identity, and neither does a name or
+  description that equalled a slider's or combobox's value when the ref was
+  captured (GTK3 sliders mirror the value into the description), so a layout or value change does not
   by itself stale a ref, but a twin does: identical buttons, or views that share
   a role and carry no other field, refuse with `AMBIGUOUS_TARGET`,
   `details.kind: identity_not_unique`, before anything reaches the app, and an
@@ -161,7 +163,8 @@ and returns `data.rendered: false` without drawing an overlay.
 
 `session start --cursor --multi-agent` returns `data.rendered: false`, because
 nothing is drawn until an agent acts. On X11 each agent id then gets its own
-cursor; on Wayland none is drawn.
+cursor; on Wayland none is drawn. An action in such a session writes nothing to
+stderr on Wayland: the skipped presentation is logged only with `--verbose`.
 
 ## What differs on Linux
 

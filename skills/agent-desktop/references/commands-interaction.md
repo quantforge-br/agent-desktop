@@ -165,7 +165,7 @@ agent-desktop click @s8f3k2p9:e5 --wait-for-gone "progressindicator" --wait-time
 - They work on `snapshot`, `press` and every ref action. Other commands (`find`, `launch`, ...) return `INVALID_ARGS`. `--root` cannot combine with them. Batch entries never inherit an outer `-w`.
 - `--wait-timeout` defaults to 30000. On expiry: exit `1`, `TIMEOUT`, `details.kind: "wait_timeout"`, `details.snapshot_id` of the last tree. A post-action timeout also embeds `details.after_action`.
 - A ref action polls the acted-on ref's window. The action result is kept under `after_action`.
-- `--wait-for-gone` succeeds with `{ "gone": true, "target_absent": true }` when the app or window itself closed.
+- `--wait-for-gone` succeeds with `{ "gone": true, "target_absent": true }` as soon as no element matches the selector. That includes a selector that never matched anything, so a misspelled selector succeeds at once: confirm it once with `--wait-for` first. `target_absent` does not say that the window or app closed. On expiry `details.gone: true` is the mode flag (the wait was for the element to go), not an outcome: the element was still there.
 - For `drag`, `--wait-for-scope to|from` picks which endpoint window to poll (default `to`).
 
 ## Mouse

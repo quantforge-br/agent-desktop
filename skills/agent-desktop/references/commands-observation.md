@@ -42,6 +42,8 @@ Choose the scope:
 
 `data.complete` is on every snapshot. When the observation budget runs out, the command still succeeds with `"complete": false`, `"truncated": true`, `"nodes_observed"`, and the tree it saw. Each node with cut descendants carries `"subtree_truncated": true`. Read `complete`; do not wait for a `TIMEOUT`. Raise `--timeout-ms` (default 3000) or drill with `--root` to finish the tree. A `--root` drill is all or nothing: an incomplete read returns `TIMEOUT`.
 
+`complete` describes the time budget only. A tree cut by `--max-depth` or `--skeleton` is still `complete: true`: the cut shows as `children_count` on the node that lists no children. A list or tree whose rows are missing from the output has such a node, so raise `--max-depth` or drill it with `--root`. A virtualized list (GTK 4 lists, web lists) also exposes only the rows it has built; scroll, then re-read.
+
 `"identity_unproven": true` means the snapshot could not read the whole window in time to prove its refs. On Windows and Linux, and on macOS for an element with no address, those refs fail with `identity_not_unique`, so retake the snapshot with a larger `--timeout-ms` before acting.
 
 A cold Chromium or Electron app can take 10 to 25 seconds to expose its web tree. If a fresh snapshot comes back thin, raise `--timeout-ms` and snapshot again.
@@ -54,11 +56,11 @@ An element gets a ref when its role is interactive or it advertises a primary ac
 
 A command re-identifies the element from the ref before it acts. On macOS the ref carries the element's own address, so identical twins each keep their ref. On Windows and Linux a ref resolves only when it was the only element in the window its snapshot captured with its role, native id, name and description, and exactly one live element still matches. A skeleton, depth-limited or drilled capture counts against the whole window, so a shallow tree proves the same thing a full one does. Values and bounds never count as identity.
 
-- `STALE_REF`, `details.kind: saved_ref_absent`: no live element matches the stored identity. Take a fresh snapshot. On macOS `retained_object_stale` means the recorded address is dead or no longer matches.
+- `STALE_REF`, `details.kind: saved_ref_absent`: no live element matches the stored identity, or the ref key is not in the snapshot at all (`details.reason: ref_not_in_snapshot`: a never-issued index, or a ref a re-drill replaced). Take a fresh snapshot. On macOS `retained_object_stale` means the recorded address is dead or no longer matches.
 - `AMBIGUOUS_TARGET`, `details.kind: saved_ref_ambiguous`: an identical element appeared, so two live elements match. `identity_not_unique`: the ref was not proven unique at capture, so nothing was searched. That is an identical twin, which every snapshot refuses again, or a window the snapshot could not read whole in time, which a new snapshot with a larger `--timeout-ms` fixes.
 - `TIMEOUT`, `details.kind: resolution_identity_unknown`: a live read did not answer, so identity is unproven. Nothing was sent; retry.
 
-Off macOS, identical twins have no ref path: only `--headed mouse-click --xy X,Y` can choose one. It takes the foreground, and a GNOME Wayland session refuses it; Hyprland sends it through its virtual pointer.
+Off macOS, identical twins have no ref path: only `--headed mouse-click --xy X,Y` can choose one. It takes the foreground, and a GNOME Wayland session refuses it; Hyprland sends it through its virtual pointer. A snapshot does not mark twins: it still gives each one a ref, and every action or read on it (`get`, `is`, `check`, `toggle`) is refused with `identity_not_unique`. Unnamed repeated controls such as checkboxes with no label are the usual case. `find` returns `bounds` only for matches without a ref, so the coordinates of a twin come from `snapshot --include-bounds`. On GTK 4 those rectangles can be off the drawn position; see the Linux skill before trusting them.
 
 ### Surfaces
 
@@ -91,15 +93,15 @@ Every non-count response returns the `snapshot_id` that owns its refs:
   "matches": [ { "ref_id": "@s8f3k2p9:e5", "role": "button", "name": "OK", "states": ["enabled"] } ] } }
 ```
 
-A match without `ref_id` is a context match: readable text with no action target. It carries `bounds` when the platform reports them. A match with a `ref_id` never carries `bounds`; read them with `get --property bounds`.
+A match without `ref_id` is a context match: readable text with no action target. It carries `bounds` when the platform reports them. A match with a `ref_id` never carries `bounds`: read them with `get --property bounds`, or with `snapshot --include-bounds`. A twin's ref (Windows and Linux) refuses `get` too, so only the snapshot gives its rectangle.
 
 ## get
 
 Reads one property of a ref: `text` (default), `value`, `title`, `bounds`, `role`, `states`.
 
 - `title` is the accessible name. It answers "what does this button say".
-- `text` is what a person reads. It is the content for `textfield`, `combobox`, `listbox`, `datefield` and `timefield`, and the name everywhere else. If the preferred half is empty, the other half answers. A checkbox answers its label, not `1`.
-- `value` is the raw value regardless of role (text, slider position).
+- `text` is what a person reads. It is the content for `textfield`, `combobox`, `listbox`, `datefield` and `timefield`, and the name everywhere else. If the preferred half is empty, the other half answers. A checkbox answers its label, not `1`. When both halves are empty or blank, as in an empty text field with no name, `text` is `null`.
+- `value` is the raw value regardless of role (text, slider position). An empty field answers `""`, so `value` tells an empty field from an unreadable one. Some GTK comboboxes (zenity's form combo) expose no value: `value` is `null` and `text` answers the label, so read the shown choice with `snapshot --root <ref>` or a screenshot.
 - `text`, `value`, `bounds` and `states` read live state when the adapter can. A missing live value or bounds returns `null`. When an optional live read is unavailable, `get` can fall back to the saved ref entry's value, name, bounds or states.
 - Only `bounds` reports whether it is live, in `data.live`. When it is `false`, the rectangle came from the snapshot and may be out of date. Check it before you pass bounds to `mouse-click`.
 

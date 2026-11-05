@@ -74,13 +74,14 @@ A held key needs a process that can guarantee its release, and every agent-deskt
   "error": {
     "code": "ACTION_NOT_SUPPORTED",
     "message": "key-down is unavailable in stateless mode",
-    "suggestion": "Use the atomic press command; held input requires a daemon-owned transaction that can guarantee release",
-    "disposition": { "delivery": "unknown", "retry": "unknown" }
+    "suggestion": "Use the atomic press command; a held key or button cannot be guaranteed released between separate CLI invocations",
+    "details": { "raw_input_emitted": false },
+    "disposition": { "delivery": "not_delivered", "retry": "safe" }
   }
 }
 ```
 
-Nothing was sent, and the command fails the same way every time. Send the whole chord with [`press`](#press), for example `press shift+tab`.
+Nothing was sent (`not_delivered`, retry `safe`), and the command fails the same way every time. Send the whole chord with [`press`](#press), for example `press shift+tab`.
 
 ## key-up
 

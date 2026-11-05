@@ -132,7 +132,7 @@ agent-desktop get <REF> [--property text|value|title|bounds|role|states]
 }
 ```
 
-`text`, `value`, `bounds`, and `states` read live state when the adapter can and fall back to the snapshot's saved values otherwise; a missing value is `null`. Only `bounds` reports whether it was live, in `data.live`. When `live` is `false`, the rectangle came from the snapshot and may be out of date, so check it before you pass bounds to `mouse-click`.
+`text`, `value`, `bounds`, and `states` read live state when the adapter can and fall back to the snapshot's saved values otherwise; a missing value is `null`. `text` is `null` when both halves are blank, as for an empty field with no name, while `value` answers `""` for an empty field, so use `value` to tell an empty field from an unreadable one. Some GTK comboboxes (zenity's form combo) expose no value at all; `text` then answers the label, so read the shown choice with `snapshot --root` on the combobox or a screenshot. Only `bounds` reports whether it was live, in `data.live`. When `live` is `false`, the rectangle came from the snapshot and may be out of date, so check it before you pass bounds to `mouse-click`.
 
 Errors specific to `get`: `INVALID_ARGS` for a bare ref or an unknown property, and the ref errors `SNAPSHOT_NOT_FOUND`, `STALE_REF`, and `AMBIGUOUS_TARGET`. See [Snapshots and refs](/desktop/snapshots-and-refs#how-a-ref-resolves).
 

@@ -23,6 +23,12 @@ agent-desktop is a CLI that reads and operates desktop apps through the OS acces
 
 Examples use a POSIX shell. In PowerShell, quote every ref (`'@s8f3k2p9:e1'`), because a bare `@token` is the splatting operator. Use `$env:NAME = 'value'` instead of `export`, and `| ConvertFrom-Json` instead of `$(...)` and `jq`. The Windows skill has the PowerShell forms.
 
+App names in examples (`Finder`, `TextEdit`, `System Settings`) are macOS names. Use the names `list-apps` prints on your OS, and never run `launch` with another OS's name: on Linux a display name is matched against installed desktop entries and can start an unrelated app.
+
+A value that starts with `-` is read as a flag. Write an option value with `=`: `move-window --x=-100 --y=20`, `launch app --arg=-x`. Put a positional value after `--`: `clipboard-set -- -x`. `type` and `set-value` text accept a leading dash as written. `scroll` takes `--direction` and an unsigned `--amount`, never a negative one. `mouse-wheel` takes negative `--dx` and `--dy` as written, but its `--x` and `--y` need the `=` form.
+
+Over MCP the tools are named `desktop_<command>` (`desktop_list_apps`, `desktop_session_start`) and take the command's arguments as JSON keys with hyphens as underscores. See the MCP guide in the docs.
+
 ## First run
 
 1. Run `agent-desktop status`. It reports the platform, permissions and `supported_surfaces`.
@@ -63,6 +69,7 @@ agent-desktop snapshot --root @s8f3k2p9:e3 -i --compact        # verify: re-read
 Action results carry `data.disposition` and errors carry `error.disposition`, each with `delivery` and `retry`. Observation commands such as `snapshot` have none on success; their errors, and every `INVALID_ARGS` refusal, carry `not_delivered` and `retry: safe`.
 
 - Retry or substitute an action only when `disposition.retry` is `safe`. Only `not_delivered` is safe.
+- `ok: true` with `delivery: not_delivered` is a no-op, not a failure: the target already was in the requested state (a focused field, a visible ref for `scroll-to`, a checkbox already in the state `check` or `uncheck` asked for), the step outcome is `skipped`, and nothing was sent. Read `disposition` before you report that an action took effect.
 - Any other delivery value means the action may have landed. A repeat can click, type or submit twice, and `toggle` can undo itself.
 - On a result that is not safe, read the live state (`get`, `is`, or a fresh snapshot) and decide from that. `details.post_state` helps when present.
 - Branch on `error.code` and `error.disposition`. Message and suggestion text can change.

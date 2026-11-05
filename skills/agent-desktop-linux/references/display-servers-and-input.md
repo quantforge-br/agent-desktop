@@ -231,9 +231,17 @@ apply.
   before a move or resize, because only floating windows move freely; it
   floats at the size Hyprland gives it, so follow a move with
   `resize-window` when the size matters, and `restore` does not tile it
-  again. When a process lists more frames than it has clients, as dux-shell
-  does with its untitled panel frames, a client goes only to the frame with
-  its title: the other frames are listed without `bounds` and never as
+  again. A client answers a resize with its own minimum size a moment after
+  the compositor records the request, so a resize reports success only once
+  the size has held for about 100 ms (a call takes about 150 ms); a request
+  below the client's minimum is `ACTION_FAILED`, cause `readback_mismatch`,
+  after at most one second, with the kept size in `details.observed`. When a
+  process lists more frames than it has clients, as dux-shell does with its
+  panel frames, a client goes only to the frame with its title. A frame with
+  no client that is the one layer surface of its process at its size, and the
+  only frame of the process at that size, takes that layer's `bounds` (and
+  the shell's own title for it), in `list-windows` and in snapshot bounds
+  alike; any other such frame is listed without `bounds` and never as
   focused.
 - **Focus.** A window is focused while it is Hyprland's active window and its
   frame carries `ACTIVE`. A shell layer that takes the keyboard, such as the
@@ -258,6 +266,26 @@ apply.
   Hyprland's window origin plus the toolkit's window-relative rectangle;
   Xwayland clients report screen positions themselves. The receiver proof
   reads Hyprland's stacking, with shell layers drawn above windows.
+- **GTK 4 rectangles can be off the drawn position** (measured on Hyprland).
+  agent-desktop adds the window origin to the rectangle GTK reports and
+  nothing checks it against the pixels: GTK 4.24 with libadwaita 1.10 reports
+  window-relative extents that do
+  not match the rendering in some layouts, so a headed pointer action aimed by
+  `bounds` can land on a neighbour and still return `ok: true` with
+  `delivered_unverified`. Measured: a zenity 4.2.2 forms dialog reports the
+  entry "First" at window (75,87) but draws it at (100,121), and its Cancel
+  button at (0,210) against drawn (24,222); in gnome-calculator the keypad's
+  nested panel is offset (12,12) twice, so every button reports +12,+12 from
+  where it is drawn. GTK's own `GetAccessibleAtPoint` uses the same wrong
+  coordinates, so no hit test can detect it, and `get --property bounds` with
+  `live: true` repeats the same rectangle. This is a toolkit bug, not an
+  agent-desktop one. On GTK 4 prefer headless semantic actions (`click`,
+  `set-value`, `select`, `check` without `--headed`), verify every pointer
+  effect independently (`get`, `is`, a fresh snapshot or a screenshot), and
+  treat coordinates from `--include-bounds` (including the ones you would give
+  `mouse-click --xy` for a twin) as unreliable until a screenshot confirms
+  them. A `select` that answers `ACTION_FAILED write_ignored` after a `--headed`
+  click on a GTK 4 list may have clicked a header or a neighbouring row.
 - **Popups.** A native Wayland Qt combo box opens its list only for real
   pointer input. A headless `click` or `expand` on a collapsed one is
   `POLICY_DENIED` with `details.kind: pointer_required`,

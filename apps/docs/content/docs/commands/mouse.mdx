@@ -140,7 +140,7 @@ Reserved name for pressing and holding a button. It never sends input.
 agent-desktop --headed mouse-down --xy 500,300 [--button NAME] [--modifiers NAME]...
 ```
 
-The first failing check decides the error: a bad argument is `INVALID_ARGS`; headless is `POLICY_DENIED` (`not_delivered`); Linux Wayland is `ACTION_NOT_SUPPORTED` with cause `wayland_session`; everywhere else, `--headed` ends in `ACTION_NOT_SUPPORTED`, `mouse-down is unavailable in stateless mode`, with a disposition of `unknown` and no event sent. Use [`mouse-click`](#mouse-click) or [`drag`](#drag).
+The first failing check decides the error: a bad argument is `INVALID_ARGS`; headless is `POLICY_DENIED` (`not_delivered`); Linux Wayland is `ACTION_NOT_SUPPORTED` with cause `wayland_session`; everywhere else, `--headed` ends in `ACTION_NOT_SUPPORTED`, `mouse-down is unavailable in stateless mode`, with a disposition of `not_delivered` (retry `safe`) and no event sent. Use [`mouse-click`](#mouse-click) or [`drag`](#drag).
 
 ## mouse-up
 

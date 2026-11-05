@@ -177,7 +177,7 @@ agent-desktop batch '[
 ]' --stop-on-error
 ```
 
-Batch saves process starts. It is not a transaction. Entries after a failure run unless you pass `--stop-on-error`.
+Batch saves process starts. It is not a transaction. Entries after a failure run unless you pass `--stop-on-error`. The batch envelope is `ok: true` with exit code 0 even when an entry failed: check each `data.results[i].ok` and `data.stopped`.
 
 ## Trace a multi-step run
 

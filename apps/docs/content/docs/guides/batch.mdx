@@ -46,6 +46,7 @@ A batch returns `ok: true` and exit code `0` even when entries fail, so read eac
       "error": {
         "code": "STALE_REF",
         "message": "@s3sl23kzkoxzvb:e999 not found in current RefMap",
+        "details": { "kind": "saved_ref_absent", "reason": "ref_not_in_snapshot" },
         "disposition": { "delivery": "not_delivered", "retry": "safe" }
       }
     }
@@ -57,7 +58,7 @@ A batch returns `ok: true` and exit code `0` even when entries fail, so read eac
 }
 ```
 
-Each entry keeps its own disposition, and a batch never retries an entry. Apply the normal rule per entry: retry only when `retry` is `safe`.
+Each entry keeps its own disposition, and a batch never retries an entry. Apply the normal rule per entry: retry only when `retry` is `safe`. `completed_entries` counts entries that ran, failed ones included (it is 2 above), so it is not a success count.
 
 ## Control failures
 

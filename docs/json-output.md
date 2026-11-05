@@ -24,7 +24,11 @@ Errors include machine-readable codes and recovery hints:
   "error": {
     "code": "STALE_REF",
     "message": "@s8f3k2p9:e7 not found in current RefMap",
-    "suggestion": "Re-run a snapshot to obtain fresh refs, then retry with the new ref (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)",
+    "suggestion": "Re-run snapshot to obtain fresh refs (a re-drill or a new snapshot replaces earlier refs), then retry with a new ref",
+    "details": {
+      "kind": "saved_ref_absent",
+      "reason": "ref_not_in_snapshot"
+    },
     "recovery": {
       "strategy": "refresh_snapshot_then_retry_original",
       "retryable": true,
@@ -48,7 +52,9 @@ returns `ok: true` with `"complete": false`, the tree it did observe,
 tree. Every node whose descendants were cut short carries
 `"subtree_truncated": true`, so a reader can walk from the root to each
 boundary. Consumers must read `data.complete` to decide whether a tree is whole;
-a `TIMEOUT` error no longer signals an oversized tree. A `--root` drill-down is
+`complete` reports the time budget only, so a tree cut by `--max-depth` or
+`--skeleton` stays `complete: true` and marks the cut with `children_count`.
+A `TIMEOUT` error no longer signals an oversized tree. A `--root` drill-down is
 unaffected: it replaces refs inside an existing snapshot, so an incomplete
 observation still returns `TIMEOUT` rather than a partial tree.
 
@@ -150,14 +156,14 @@ Every ref is re-identified from its stored entry or refused, and `details.kind` 
 | `details.kind` | Code | Meaning |
 |------|------|---------|
 | `retained_object_stale` | `STALE_REF` | macOS: the element's recorded address is dead, or its process, role or recorded identifier no longer matches. `details.reason` is `dead`, `pid`, `role` or `native_identifier`. No search runs, so the ref cannot land on a look-alike. Take a fresh snapshot. |
-| `saved_ref_absent` | `STALE_REF` | No live element matches the stored role and stable fields over complete evidence, so the element is gone. Take a fresh snapshot. |
+| `saved_ref_absent` | `STALE_REF` | No live element matches the stored role and stable fields over complete evidence, so the element is gone. Or the ref key is not in the snapshot's ref map at all (a never-issued index, or a ref a re-drill replaced): then `details.reason` is `ref_not_in_snapshot`. Take a fresh snapshot. |
 | `saved_ref_ambiguous` | `AMBIGUOUS_TARGET` | An element identical to the captured one appeared, so two or more live elements match the stored role and stable fields. A fresh snapshot refuses both as twins; act on a control that is unique in the window. |
 | `surface_closed` | `STALE_REF` | The ref was taken on a surface, such as a menu or popup, that is no longer open. `details.surface` names it and `details.complete` is `true`. Reopen the surface through its opener and snapshot it again; reopening mints new refs. |
 | `identity_not_unique` | `AMBIGUOUS_TARGET` | The ref was not proven the only element matching its role and stable fields when it was captured, so nothing is searched. Either an identical twin existed, or the window could not be read whole within the snapshot timeout (retake the snapshot with a larger `--timeout-ms`). It is reached on Windows, on Linux, and on macOS when the element yields no address. A twin is refused by every snapshot; only an explicit coordinate click (`--headed mouse-click --xy`) can pick one, it takes the foreground, and it is unavailable on a GNOME Wayland session. |
 
-The sixth outcome is `resolution_identity_unknown`, which carries `TIMEOUT`: a live field could not be read, so the identity count stayed unproven. It is retryable. Linux menu and tray refs report the same kind as `STALE_REF`.
+The sixth outcome is `resolution_identity_unknown`, which carries `TIMEOUT`: a live field could not be read, so the identity count stayed unproven. It is retryable. Linux menu and tray refs report the same kind as `STALE_REF`. A ref that resolved but whose live element changed role or identity before dispatch is `STALE_REF` with `details.kind: resolved_element_changed` and `details.retryable: true`. Other `STALE_REF` errors (a window or process that is gone, a tray or menu that closed) carry no ref-identity kind.
 
-After the core resolver chooses the element, the platform adapter lands it, and a landing failure keeps the adapter's own `details.kind` (for example `resolve_no_candidate` on Linux and Windows, or `resolution_complete_absence` on macOS). The platform skills list those kinds. `saved_ref_absent`, `saved_ref_ambiguous` and `identity_not_unique` carry `details.retryable: false`, because waiting cannot change the answer. Every one of these is `not_delivered`.
+After the core resolver chooses the element, the platform adapter lands it, and a landing failure keeps the adapter's own `details.kind` (for example `resolve_no_candidate` on Linux and Windows, or `resolution_complete_absence` on macOS). The platform skills list those kinds. `saved_ref_absent`, `saved_ref_ambiguous` and `identity_not_unique` carry `details.retryable: false`, because waiting cannot change the answer; the one exception is `saved_ref_absent` with `reason: ref_not_in_snapshot`, which names no `retryable` and keeps its snapshot `recovery` hint. On a value-bearing role (slider, combobox, checkbox, text field), a name or description that equals the element's value when the ref is captured (a GTK3 slider whose description is its value) is not recorded as identity, so a value change does not make the ref stale. A name or description recorded at capture is compared as it is, even if the value later comes to equal it. Every one of these is `not_delivered`.
 
 ## Error codes
 
@@ -183,3 +189,5 @@ After the core resolver chooses the element, the platform adapter lands it, and 
 ## Exit codes
 
 `0` success, `1` structured error (JSON on stdout), `2` command-line parse error (the envelope is still printed, with `INVALID_ARGS`).
+
+`batch` is the exception: its envelope is `ok: true` with exit `0` even when entries failed. Read `data.results[i].ok` and `data.stopped`. `data.completed_entries` counts entries that ran, failed ones included; entries that never ran are in `not_started_entries`.

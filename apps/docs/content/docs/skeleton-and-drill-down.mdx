@@ -178,6 +178,8 @@ agent-desktop get @s2txcl95uvubmn:e11                  # inside the region: repl
   "error": {
     "code": "STALE_REF",
     "message": "@s2txcl95uvubmn:e11 not found in current RefMap",
+    "suggestion": "Re-run snapshot to obtain fresh refs (a re-drill or a new snapshot replaces earlier refs), then retry with a new ref",
+    "details": { "kind": "saved_ref_absent", "reason": "ref_not_in_snapshot" },
     "recovery": {
       "strategy": "refresh_snapshot_then_retry_original",
       "retryable": true,
@@ -187,8 +189,6 @@ agent-desktop get @s2txcl95uvubmn:e11                  # inside the region: repl
   }
 }
 ```
-
-The second envelope omits `suggestion`.
 
 ## What a drill refuses
 
@@ -322,7 +322,7 @@ The `tree` above is emptied for space; the real one holds the nodes that were re
     <tr><th>Field</th><th>Meaning</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>complete</code></td><td>On every snapshot. <code>false</code> means the tree is not whole.</td></tr>
+    <tr><td><code>complete</code></td><td>On every snapshot. <code>false</code> means the time budget ran out and the tree is not whole. It does not report depth: a tree cut by <code>--max-depth</code> or <code>--skeleton</code> is still <code>complete: true</code>, and the cut shows as <code>children_count</code> on the node that lists no children.</td></tr>
     <tr><td><code>truncated</code>, <code>nodes_observed</code></td><td>Added when <code>complete</code> is <code>false</code>. <code>nodes_observed</code> counts the nodes read.</td></tr>
     <tr><td><code>subtree_truncated: true</code></td><td>On each node whose descendants the budget cut, so you can walk from the root to every boundary.</td></tr>
     <tr><td><code>children_count</code></td><td>Set by a depth cut. A node cut by the budget may carry no count, so treat <code>subtree_truncated</code> as the signal.</td></tr>
