@@ -47,7 +47,7 @@ agent-desktop permissions
 | `permissions` field | Linux value |
 |---------------------|-------------|
 | `accessibility` | `granted` when the bus answered, `denied` with a cause-specific suggestion when it cannot be reached |
-| `screen_recording` | `not_required` on X11; `unknown` on Wayland (only a screenshot request shows the answer) |
+| `screen_recording` | `not_required` on X11 and on a Hyprland that answers its socket within 250 ms; `unknown` on other Wayland sessions (only a screenshot request shows the answer) |
 | `automation` | `not_required` |
 
 `permissions --request` has nothing to request on Linux.

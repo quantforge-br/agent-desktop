@@ -8,13 +8,17 @@ use crate::system::display::route::{Route, current};
 use crate::system::x11::capture::grab::{DisplayGrabber, Grabber};
 
 const CAPTURE_PROBE_SLICE: Duration = Duration::from_millis(1_000);
+/// Every command that needs a permission report pays this probe before its
+/// own deadline starts, so a hung Hyprland must not cost it a second. A
+/// healthy one answers a monitor request in a few milliseconds.
+const HYPRLAND_PROBE_SLICE: Duration = Duration::from_millis(250);
 
 pub(crate) fn report(
     bus: &SharedBus,
     deadline: Deadline,
 ) -> Result<PermissionReport, AdapterError> {
     crate::input::x11::stale_release::sweep();
-    let capture = if hyprland_answers(deadline.capped(CAPTURE_PROBE_SLICE)) {
+    let capture = if hyprland_answers(deadline.capped(HYPRLAND_PROBE_SLICE)) {
         CaptureAvailability::Reachable
     } else {
         capture_availability(
