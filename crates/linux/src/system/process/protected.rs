@@ -13,6 +13,7 @@ use crate::system::process::process_lookup::Lookup;
 use crate::system::process::session_origin;
 use crate::system::registry::Registry;
 use crate::system::registry::listed_window::ListedWindow;
+use crate::system::shell::dux::backend::{self, Backend};
 use crate::system::window::window_ops::windows_of;
 
 fn unknown() -> AdapterError {
@@ -248,6 +249,13 @@ fn owns_session_bus_name(pid: u32, deadline: Deadline) -> Result<bool, AdapterEr
         .map_err(|error| error.with_disposition(DeliverySemantics::not_delivered()))
 }
 
+/// Whether `shell` names `pid` as the session's dux-shell. Its bar, its
+/// notifications and its launcher end with it, so closing it is never an
+/// application close, whatever windows it shows.
+fn is_session_shell(shell: Backend, pid: u32) -> bool {
+    matches!(shell, Backend::Dux(dux) if dux.pid == pid)
+}
+
 pub(crate) fn is_protected(
     bus: &crate::system::SharedBus,
     pid: u32,
@@ -263,7 +271,7 @@ pub(crate) fn is_protected(
     if !instance_matches() {
         return Err(unknown());
     }
-    if display_owner {
+    if display_owner || is_session_shell(backend::select(deadline), pid) {
         return Ok(true);
     }
     let registry = crate::system::registry::read_registry_for(bus, Some(pid), deadline)

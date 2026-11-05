@@ -156,3 +156,17 @@ fn an_unreachable_display_is_reported_as_the_display_not_as_unproven_ownership()
     assert_eq!(error.code, ErrorCode::PlatformNotSupported);
     assert!(error.message.contains("display server is not running"));
 }
+
+#[test]
+fn only_the_recognised_dux_shell_is_the_session_shell() {
+    use crate::system::shell::dux::backend::DuxShell;
+    use crate::system::shell::dux::proof::Proof;
+    let dux = Backend::Dux(DuxShell {
+        pid: 7,
+        proof: Proof::DmsParent,
+    });
+    assert!(is_session_shell(dux, 7));
+    assert!(!is_session_shell(dux, 8));
+    assert!(!is_session_shell(Backend::Gnome, 7));
+    assert!(!is_session_shell(Backend::Unrecognised, 7));
+}
