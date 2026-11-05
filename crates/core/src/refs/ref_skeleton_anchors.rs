@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 /// Plans the boundary containers that anchor a skeleton, deepest first. A
 /// boundary is covered by a ref-able node, or becomes an anchor when it can
-/// hold a ref and carries identity evidence, only when `offered` accepts that
+/// hold a ref, draws an area and carries identity evidence, only when `offered` accepts that
 /// node; otherwise the uncovered boundary passes to the parent, so the nearest
 /// accepted ancestor anchors it instead. Returns whether a boundary below
 /// `node` is still uncovered.
@@ -29,6 +29,7 @@ pub(crate) fn plan_skeleton_anchors(
     }
     if !path.is_empty()
         && can_receive_observed_ref(node)
+        && !has_zero_area(node)
         && carries_identity_evidence(node)
         && offered(node, path.as_slice())
     {
@@ -36,6 +37,15 @@ pub(crate) fn plan_skeleton_anchors(
         return false;
     }
     true
+}
+
+/// A collapsed container, such as a banner that is not revealed, draws nothing
+/// a drill could reach that its nearest drawn ancestor does not reach too, so
+/// it passes its boundary up instead of taking an anchor.
+fn has_zero_area(node: &AccessibilityNode) -> bool {
+    node.presentation
+        .bounds
+        .is_some_and(|bounds| bounds.width <= 0.0 || bounds.height <= 0.0)
 }
 
 /// Whether a boundary container carries anything a census could prove it by: an

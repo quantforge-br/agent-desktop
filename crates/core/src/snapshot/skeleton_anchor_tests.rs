@@ -133,3 +133,30 @@ fn deepest_resolvable_anchor_wins() {
     assert!(result.children[0].children[0].ref_id.is_some());
     assert_eq!(refmap.len(), 1);
 }
+
+#[test]
+fn a_zero_area_boundary_passes_its_anchor_to_the_drawn_ancestor() {
+    let mut banner = node("group");
+    banner.identity.native_id = Some(crate::ElementIdentifier {
+        kind: crate::IdentifierKind::AxIdentifier,
+        value: "AdwBanner".into(),
+    });
+    banner.children_count = Some(1);
+    banner.presentation.bounds = Some(crate::Rect {
+        x: 0.0,
+        y: 46.0,
+        width: 360.0,
+        height: 0.0,
+    });
+    let mut page = node("group");
+    page.identity.name = Some("Files".into());
+    page.children = vec![banner];
+    let mut root = node("window");
+    root.children = vec![page];
+
+    let (result, _) = run_captured(root);
+
+    let page = &result.children[0];
+    assert!(page.children[0].ref_id.is_none());
+    assert!(page.ref_id.is_some());
+}
