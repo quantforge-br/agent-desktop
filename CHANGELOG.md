@@ -23,6 +23,7 @@
 * A session bus that accepts the connection and never answers no longer holds a command with a short timeout for five seconds. The permission check a command makes before it starts is held to the command's own timeout, at least one second and at most five, so `snapshot --timeout-ms 1000` and a default `snapshot` end with `TIMEOUT` within their timeout plus a second.
 * On Linux, GTK 4.24 menu-button popovers and GTK 3 popup menus under Hyprland are found and placed, so `--surface menu` snapshots and their item clicks work.
 * `hover` and `drag` on a target that stays covered, for example by another window, end with `TIMEOUT`, `details.kind: actionability_timeout` and the covering element in `details.last_report` when `--timeout-ms` runs out, instead of a bare deadline or interaction-lock timeout.
+* On Hyprland, `resize-window` reports success only after the new size has held for 100 ms, so a window that clamps to its own minimum size ends `ACTION_FAILED` with `cause: readback_mismatch` instead of `delivered_verified`.
 
 ## [1.1.0](https://github.com/vercel-labs/agent-desktop/compare/v1.0.2...v1.1.0) (2026-11-02)
 

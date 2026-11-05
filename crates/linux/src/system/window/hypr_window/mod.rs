@@ -7,6 +7,7 @@
 mod hypr_fake;
 pub(crate) mod hypr_focus;
 pub(crate) mod hypr_listing;
+pub(crate) mod hypr_settle;
 pub(crate) mod hypr_unmatched;
 pub(crate) mod hypr_window_key;
 pub(crate) mod hypr_window_match;

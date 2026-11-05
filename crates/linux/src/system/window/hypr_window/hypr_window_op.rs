@@ -1,26 +1,22 @@
-use std::time::Duration;
-
 use agent_desktop_core::{
     AdapterError, DeliverySemantics, ErrorCode, OperationReport, Rect, WindowInfo, WindowOp,
 };
 use serde_json::{Value, json};
 
+use super::hypr_settle::{near, settle, settle_steady};
 use super::hypr_window_key::WindowKey;
 use super::hypr_window_match::match_client;
 use super::hypr_world::HyprWorld;
 use crate::system::hyprland::hypr_client::HyprClient;
 use crate::system::hyprland::hypr_command::HyprCommand;
 use crate::system::process::process_lookup::Lookup;
-use crate::system::window::window_op::window_op_verdict::{POSITION_TOLERANCE, requested};
+use crate::system::window::window_op::window_op_verdict::requested;
 use crate::system::window::window_report::window_readback;
 use crate::system::x11::control::control_send::WindowWrite;
 
 /// The special workspace a minimized window is parked on. Hyprland has no
 /// minimized state; a window on this workspace is listed as minimized.
 pub(crate) const MINIMIZED_WORKSPACE: &str = "special:minimized";
-
-const SETTLE: Duration = Duration::from_millis(1_000);
-const POLL: Duration = Duration::from_millis(25);
 
 pub(super) fn stale(message: &str) -> AdapterError {
     AdapterError::stale_ref_because(message).with_disposition(DeliverySemantics::not_delivered())
@@ -64,7 +60,7 @@ pub(super) fn vanished() -> AdapterError {
     .with_disposition(DeliverySemantics::delivered_unverified())
 }
 
-fn mismatch(requested: &Value, client: &HyprClient) -> AdapterError {
+pub(super) fn mismatch(requested: &Value, client: &HyprClient) -> AdapterError {
     AdapterError::new(
         ErrorCode::ActionFailed,
         "Hyprland left the window other than requested",
@@ -81,7 +77,7 @@ fn mismatch(requested: &Value, client: &HyprClient) -> AdapterError {
     .with_disposition(DeliverySemantics::delivered_unverified())
 }
 
-fn delivered(error: AdapterError) -> AdapterError {
+pub(super) fn delivered(error: AdapterError) -> AdapterError {
     if error.disposition == DeliverySemantics::not_delivered() {
         error.with_disposition(DeliverySemantics::uncertain())
     } else {
@@ -94,38 +90,6 @@ pub(super) fn locate(world: &impl HyprWorld, win: &WindowInfo) -> Result<HyprCli
     match_client(&clients, WindowKey::of(win))
         .cloned()
         .map_err(|unmatched| unmatched.into_error())
-}
-
-/// Reads the client at `address` until `holds` accepts it or the settle
-/// budget ends, then checks the client still belongs to the window's process.
-fn settle(
-    world: &impl HyprWorld,
-    win: &WindowInfo,
-    address: u64,
-    asked: &Value,
-    holds: impl Fn(&HyprClient) -> bool,
-) -> Result<HyprClient, AdapterError> {
-    let limit = world.deadline().capped(SETTLE);
-    loop {
-        let clients = world.clients().map_err(delivered)?;
-        let Some(client) = clients.into_iter().find(|client| client.address == address) else {
-            return Err(vanished());
-        };
-        if client.owner.pid != win.pid.get() {
-            return Err(vanished());
-        }
-        if holds(&client) {
-            return Ok(client);
-        }
-        if limit.is_expired() {
-            return Err(mismatch(asked, &client));
-        }
-        std::thread::sleep(POLL.min(limit.remaining()));
-    }
-}
-
-fn near(wanted: i64, seen: f64) -> bool {
-    (wanted as f64 - seen).abs() <= f64::from(POSITION_TOLERANCE)
 }
 
 fn send(
@@ -225,12 +189,18 @@ fn place(
     }
     send(world, &client, &HyprCommand::MoveTo { x, y }, started)?;
     let asked = json!({ "x": x, "y": y, "width": width, "height": height });
-    let done = settle(world, win, client.address, &asked, |c| {
+    let wants_size = width.is_some() || height.is_some();
+    let holds = |c: &HyprClient| {
         near(x, c.frame.x)
             && near(y, c.frame.y)
             && width.is_none_or(|w| near(i64::from(w), c.frame.width))
             && height.is_none_or(|h| near(i64::from(h), c.frame.height))
-    })?;
+    };
+    let done = if wants_size {
+        settle_steady(world, win, client.address, &asked, holds)?
+    } else {
+        settle(world, win, client.address, &asked, holds)?
+    };
     Ok(width.map(|_| rect_json(&done.frame)))
 }
 
