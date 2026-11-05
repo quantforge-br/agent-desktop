@@ -24,11 +24,7 @@ pub(crate) fn extents_of(rect: &Rect) -> Option<Extents> {
 fn client_of(pid: u32, title: &str, deadline: Deadline) -> Option<(HyprClient, HyprInstance)> {
     let instance = HyprInstance::detect()?;
     let clients = instance.clients(deadline).ok()?;
-    let key = WindowKey {
-        pid,
-        title,
-        bounds: None,
-    };
+    let key = WindowKey::of_frame(pid, title);
     let client = match_client(&clients, key).ok()?.clone();
     Some((client, instance))
 }

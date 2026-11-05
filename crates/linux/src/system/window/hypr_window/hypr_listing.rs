@@ -45,11 +45,14 @@ impl HyprView {
     /// answer; a window with no single client keeps what the toolkit said
     /// but is never the focused one.
     pub(crate) fn annotate(&self, windows: &mut [ListedWindow]) {
+        let pids: Vec<u32> = windows.iter().map(|window| window.info.pid.get()).collect();
         for window in windows {
+            let pid = window.info.pid.get();
             let key = WindowKey {
-                pid: window.info.pid.get(),
+                pid,
                 title: &window.info.title,
                 bounds: None,
+                alone: pids.iter().filter(|listed| **listed == pid).count() == 1,
             };
             let Ok(client) = match_client(&self.clients, key) else {
                 window.info.state.is_focused = false;

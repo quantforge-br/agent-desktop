@@ -76,6 +76,41 @@ fn a_window_without_a_single_client_is_left_unplaced_and_unfocused() {
 }
 
 #[test]
+fn shell_frames_beside_its_one_toplevel_take_neither_its_place_nor_its_focus() {
+    let view = view(
+        vec![client(0x1, "What's New", rect(280.0, 62.0, 720.0, 720.0))],
+        0x1,
+    );
+    let mut windows = vec![
+        listed("", false),
+        listed("What's New", false),
+        listed("", false),
+    ];
+    view.annotate(&mut windows);
+    assert_eq!(HyprView::focused(&windows), Some(1));
+    assert_eq!(
+        windows[1].info.bounds,
+        Some(rect(280.0, 62.0, 720.0, 720.0))
+    );
+    for frame in [&windows[0], &windows[2]] {
+        assert!(!frame.info.state.is_focused);
+        assert_eq!(frame.info.bounds, None);
+    }
+}
+
+#[test]
+fn a_lone_window_takes_its_process_single_client_whatever_its_title() {
+    let view = view(
+        vec![client(0x1, "Notes - draft", rect(0.0, 0.0, 300.0, 200.0))],
+        0x1,
+    );
+    let mut windows = vec![listed("Notes", false)];
+    view.annotate(&mut windows);
+    assert_eq!(HyprView::focused(&windows), Some(0));
+    assert_eq!(windows[0].info.bounds, Some(rect(0.0, 0.0, 300.0, 200.0)));
+}
+
+#[test]
 fn a_process_is_hidden_only_when_no_window_of_it_is_shown() {
     let mut parked = client(0x2, "Mail", rect(10.0, 10.0, 300.0, 200.0));
     parked.state.workspace = MINIMIZED_WORKSPACE.into();

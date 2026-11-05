@@ -15,8 +15,10 @@ fn same_place(frame: &Rect, bounds: &Rect) -> bool {
 
 /// The one mapped client of the window's process with the window's title.
 /// A process with a single mapped client answers with it even when the
-/// titles differ, because nothing else can show that window; several
-/// clients sharing the title are told apart by the listed bounds only.
+/// titles differ, but only for a window its listing shows alone and, when
+/// the window's bounds are known, only at the client's place: nothing else
+/// can show that window. Several clients sharing the title are told apart
+/// by the listed bounds only.
 pub(crate) fn match_client<'a>(
     clients: &'a [HyprClient],
     key: WindowKey<'_>,
@@ -30,9 +32,18 @@ pub(crate) fn match_client<'a>(
         .copied()
         .filter(|client| client.owner.title == key.title)
         .collect();
-    let candidates = match (titled.len(), owned.len()) {
-        (0, 1) => owned,
-        (0, _) => return Err(Unmatched::Missing),
+    let lone = match owned.as_slice() {
+        [only] => {
+            key.alone
+                && key
+                    .bounds
+                    .is_none_or(|bounds| same_place(&only.frame, bounds))
+        }
+        _ => false,
+    };
+    let candidates = match (titled.len(), lone) {
+        (0, true) => owned,
+        (0, false) => return Err(Unmatched::Missing),
         _ => titled,
     };
     if let [only] = candidates.as_slice() {

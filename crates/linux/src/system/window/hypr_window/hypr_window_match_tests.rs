@@ -37,7 +37,12 @@ fn client(address: u64, pid: u32, title: &str, x: f64) -> HyprClient {
 }
 
 fn key<'a>(pid: u32, title: &'a str, bounds: Option<&'a Rect>) -> WindowKey<'a> {
-    WindowKey { pid, title, bounds }
+    WindowKey {
+        pid,
+        title,
+        bounds,
+        alone: true,
+    }
 }
 
 #[test]
@@ -108,5 +113,50 @@ fn several_untitled_matches_are_not_resolved_by_the_lone_client_rule() {
     assert_eq!(
         match_client(&clients, key(7, "C", None)),
         Err(Unmatched::Missing)
+    );
+}
+
+#[test]
+fn the_lone_client_is_withheld_from_a_window_beside_others_or_elsewhere() {
+    let clients = [client(1, 7, "Notes - draft", 0.0)];
+    let beside = WindowKey {
+        alone: false,
+        ..key(7, "Notes", None)
+    };
+    assert_eq!(match_client(&clients, beside), Err(Unmatched::Missing));
+    let elsewhere = Rect {
+        x: 600.0,
+        y: 10.0,
+        width: 300.0,
+        height: 200.0,
+    };
+    assert_eq!(
+        match_client(&clients, key(7, "Notes", Some(&elsewhere))),
+        Err(Unmatched::Missing)
+    );
+    let placed = Rect {
+        x: 1.0,
+        ..elsewhere
+    };
+    assert_eq!(
+        match_client(&clients, key(7, "Notes", Some(&placed)))
+            .unwrap()
+            .address,
+        1
+    );
+}
+
+#[test]
+fn an_untitled_frame_is_not_lent_its_process_lone_client() {
+    let clients = [client(1, 7, "What's New", 0.0)];
+    assert_eq!(
+        match_client(&clients, WindowKey::of_frame(7, "")),
+        Err(Unmatched::Missing)
+    );
+    assert_eq!(
+        match_client(&clients, WindowKey::of_frame(7, "Welcome"))
+            .unwrap()
+            .address,
+        1
     );
 }

@@ -146,11 +146,7 @@ pub(crate) fn hypr_windowing(frame: &FrameFacts, deadline: Deadline) -> Option<W
         monitors: &monitors,
         layers: &layers,
     };
-    let key = WindowKey {
-        pid: frame.pid,
-        title: &frame.title,
-        bounds: None,
-    };
+    let key = WindowKey::of_frame(frame.pid, &frame.title);
     let target = match_client(&clients, key).ok()?;
     let (client, snapshot) = scene.stacking(target)?;
     Some(Windowing {

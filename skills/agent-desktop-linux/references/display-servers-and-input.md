@@ -220,7 +220,10 @@ apply.
   no minimized state: `minimize` parks the window on the special workspace
   `special:minimized`, which `list-windows` reports as `minimized`, and
   `restore` or `focus-window` brings it back. A tiled window becomes floating
-  before a move or resize, because only floating windows move freely.
+  before a move or resize, because only floating windows move freely. When a
+  process lists more frames than it has clients, as dux-shell does with its
+  untitled panel frames, a client goes only to the frame with its title: the
+  other frames are listed without `bounds` and never as focused.
 - **Keys.** `press`, `--headed type` and key steps use a
   `zwp_virtual_keyboard_v1` device whose keymap is made from the keys being
   sent, so accented and non-Latin characters type without
