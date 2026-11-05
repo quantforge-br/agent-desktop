@@ -26,6 +26,7 @@
 * On Hyprland, `resize-window` reports success only after the new size has held for 100 ms, so a window that clamps to its own minimum size ends `ACTION_FAILED` with `cause: readback_mismatch` instead of `delivered_verified`.
 * On a dux-shell session, `open-system-surface`, `list-windows` and `snapshot --include-bounds` place the dock, the top bar and their items where they are drawn, and `list-windows` titles them as `open-system-surface` does. A shell window that matches no single layer keeps no bounds instead of a guessed position.
 * `wait --event --app NAME --window-id ID` follows the process that owns the window, so two processes with the same app name no longer fail `AMBIGUOUS_TARGET`. A batch whose event wait still names an ambiguous app stops before the entry ahead of the wait runs (`pre_action_baseline_failed`), even when the platform returns every instance of the app.
+* `key-down`, `key-up`, `mouse-down` and `mouse-up` refusals report `not_delivered` with a safe retry instead of `unknown`, because nothing is sent.
 
 ## [1.1.0](https://github.com/vercel-labs/agent-desktop/compare/v1.0.2...v1.1.0) (2026-11-02)
 
