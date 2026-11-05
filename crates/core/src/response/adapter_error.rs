@@ -95,9 +95,12 @@ impl AdapterError {
             format!("{ref_id} not found in current RefMap"),
         )
         .with_suggestion(
-            "Re-run a snapshot to obtain fresh refs, then retry with the new ref \
-             (CLI: snapshot [--skeleton]; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref)",
+            "Re-run snapshot to obtain fresh refs (a re-drill or a new snapshot replaces earlier refs), then retry with a new ref",
         )
+        .with_details(serde_json::json!({
+            "kind": "saved_ref_absent",
+            "reason": "ref_not_in_snapshot",
+        }))
         .with_disposition(DeliverySemantics::not_delivered())
     }
 
@@ -205,8 +208,7 @@ impl AdapterError {
         )
         .with_suggestion(
             "Notification may have been dismissed or expired. \
-             Re-run a notification list to see current notifications \
-             (CLI: list-notifications; FFI: ad_list_notifications)",
+             Re-run list-notifications to see current notifications",
         )
         .with_disposition(DeliverySemantics::not_delivered())
     }
@@ -241,8 +243,7 @@ impl AdapterError {
             format!("Snapshot '{snapshot_id}' not found"),
         )
         .with_suggestion(
-            "Re-run a snapshot and retry with a ref from the returned snapshot \
-             (CLI: snapshot, then use the printed @<snapshot_id>:eN ref; FFI: ad_snapshot then pass the printed qualified ref to ad_execute_by_ref). \
+            "Re-run snapshot and retry with a ref from the returned snapshot (the printed @<snapshot_id>:eN ref). \
              Snapshots are scoped to the session that took them, so take the snapshot under the same --session \
              or AGENT_DESKTOP_SESSION you act with: one taken outside a session is not visible to a session-scoped \
              action, and re-running it outside the session will fail the same way",
@@ -283,12 +284,11 @@ impl AdapterError {
 
 pub(crate) fn policy_denied_suggestion(policy: InteractionPolicy) -> &'static str {
     if policy.allow_focus_steal && !policy.allow_cursor_move {
-        "Enable cursor movement in the interaction policy to permit cursor-driven actions \
-         (CLI: --headed; FFI: set allow_cursor_move in the policy), \
+        "Enable cursor movement in the interaction policy (--headed) to permit cursor-driven actions, \
          or use an explicit mouse command if physical input is intended"
     } else if !policy.allow_focus_steal && !policy.allow_cursor_move {
         "Headless mode allows only accessibility-backed actions; \
-         enable physical interaction in the policy (CLI: --headed) only if cursor/focus movement is intended, \
+         enable physical interaction in the policy (--headed) only if cursor/focus movement is intended, \
          otherwise refresh the snapshot or target an element with the needed semantic action"
     } else {
         "Use an explicit mouse/focus command if physical interaction is intended"

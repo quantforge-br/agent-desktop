@@ -18,7 +18,27 @@ fn stale_ref_suggestion_is_transport_neutral() {
         .as_deref()
         .expect("stale_ref should carry a suggestion");
     assert!(suggestion.contains("snapshot"));
-    assert!(suggestion.contains("FFI"));
+    assert!(!suggestion.contains("FFI") && !suggestion.contains("ad_"));
+    let details = error.details.expect("a missing ref names its kind");
+    assert_eq!(details["kind"], "saved_ref_absent");
+    assert_eq!(details["reason"], "ref_not_in_snapshot");
+}
+
+#[test]
+fn cli_suggestions_carry_no_ffi_guidance() {
+    let suggestions = [
+        AdapterError::notification_not_found(1).suggestion,
+        AdapterError::snapshot_not_found("s1").suggestion,
+        AdapterError::policy_denied_for_policy("x", InteractionPolicy::headless()).suggestion,
+        AdapterError::policy_denied_for_policy("x", InteractionPolicy::focus_fallback()).suggestion,
+    ];
+    for suggestion in suggestions {
+        let suggestion = suggestion.expect("carries a suggestion");
+        assert!(
+            !suggestion.contains("FFI") && !suggestion.contains("ad_"),
+            "{suggestion}"
+        );
+    }
 }
 
 #[test]
