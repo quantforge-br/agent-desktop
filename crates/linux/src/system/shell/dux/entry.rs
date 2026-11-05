@@ -7,6 +7,7 @@ use serde_json::json;
 use super::app::find_app;
 use super::backend::DuxShell;
 use super::present::{Stage, open_with, resolve_with};
+use super::recognise::is_quickshell;
 use super::stage::LiveStage;
 use super::surface::{Surface, of};
 use crate::system::bus::session_bus::SessionBus;
@@ -126,9 +127,18 @@ fn stale(message: &str) -> AdapterError {
         .with_suggestion("Run 'snapshot' to refresh, then retry with the new ref")
 }
 
-/// Observes a shell surface window: the window must still be the one that
-/// presents the surface, and the tray is read through its protocol because
-/// the bar's own window holds no content.
+/// Whether `window` was taken from a dux-shell, this one or one that has
+/// since restarted, rather than chosen by the application path for a request
+/// that named no window: that path knows no shell surface and offers another
+/// application's window.
+fn taken_from_a_shell(shell: DuxShell, window: &WindowInfo) -> bool {
+    window.pid.get() == shell.pid || is_quickshell(&window.app)
+}
+
+/// Observes a shell surface window: a window taken from the shell must still
+/// be the one that presents the surface, any other names the surface the
+/// shell presents now, and the tray is read through its protocol because the
+/// bar's own window holds no content.
 pub(crate) fn observe(
     bus: &SharedBus,
     shell: DuxShell,
@@ -136,12 +146,17 @@ pub(crate) fn observe(
     request: &ObservationRequest,
 ) -> Result<ObservedTree, AdapterError> {
     let surface = of(request.surface)?;
+    let current = resolve(bus, shell, request.surface, request.deadline)?;
+    let window = if taken_from_a_shell(shell, window) {
+        window
+    } else {
+        &current
+    };
     let (bus_name, _) = window_id::decode(&window.id)?;
     let app = find_app(bus, shell.pid, request.deadline)?;
     if app.bus_name() != bus_name {
         return Err(stale("The shell was restarted since this window was taken"));
     }
-    let current = resolve(bus, shell, request.surface, request.deadline)?;
     if current.id != window.id {
         return Err(stale(
             "The shell surface changed before it could be observed",
@@ -155,3 +170,7 @@ pub(crate) fn observe(
     inner.surface = SnapshotSurface::Window;
     crate::tree::observe_tree(bus, ObservationRoot::Window(window), &inner)
 }
+
+#[cfg(test)]
+#[path = "entry_tests.rs"]
+mod tests;

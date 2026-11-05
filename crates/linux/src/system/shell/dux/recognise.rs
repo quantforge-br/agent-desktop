@@ -9,6 +9,11 @@ const SHELL_ROOT: &str = "shell.qml";
 const DMS_EXECUTABLE: &str = "dms";
 const DMS_RUN: &str = "run";
 
+/// Whether `name` is a name a quickshell process runs under.
+pub(crate) fn is_quickshell(name: &str) -> bool {
+    QUICKSHELL_EXECUTABLES.contains(&name)
+}
+
 /// The directories quickshell was told to load: the value after `-p`/`--path`,
 /// or the named configuration under each configuration directory for
 /// `-c`/`--config`.

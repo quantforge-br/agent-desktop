@@ -99,6 +99,10 @@ pub fn build(
 /// as the adapter supplied it, and a surface that answers with another window
 /// leaves the id to the application path.
 ///
+/// `notification-center` and `spotlight` with no app and no window named ask the
+/// seam first too, because a shell may present them as its own surface; any
+/// refusal leaves them to the application path, where other platforms read them.
+///
 /// `menu-bar-extras` with an app name is that app's own status item and takes the
 /// application path, where a background app that lists no window is read through its process.
 pub(crate) fn resolve_window_for_surface(
@@ -109,12 +113,15 @@ pub(crate) fn resolve_window_for_surface(
     deadline: crate::Deadline,
 ) -> Result<WindowInfo, AppError> {
     let app_status_item = app_name.is_some() && surface == crate::SnapshotSurface::MenuBarExtras;
-    if is_shell_surface(surface) && !app_status_item {
+    let shell_presented =
+        surface.may_be_shell_presented() && app_name.is_none() && window_id.is_none();
+    if (surface.is_shell_chrome() && !app_status_item) || shell_presented {
         match adapter.resolve_shell_surface(surface, deadline) {
             Ok(window) if window_id.is_none_or(|id| window.id == id) => return Ok(window),
             Ok(_) => {}
             Err(error)
                 if window_id.is_none()
+                    && !shell_presented
                     && !error.is_default_not_supported("resolve_shell_surface") =>
             {
                 return Err(error.into());
@@ -126,7 +133,7 @@ pub(crate) fn resolve_window_for_surface(
         return resolve_window(adapter, app_name, window_id, deadline);
     }
     let windows = windows_for_app(adapter, app_name, deadline)?;
-    if let (true, Some(app)) = (windows.is_empty() && is_process_surface(surface), app_name) {
+    if let (true, Some(app)) = (windows.is_empty() && surface.is_process_surface(), app_name) {
         return crate::system::app_lookup::windowless_app_owner(adapter, app, deadline);
     }
     if let (crate::SnapshotSurface::Window, Some(app)) = (surface, app_name) {
@@ -141,35 +148,6 @@ pub(crate) fn resolve_window_for_surface(
                 surface.as_str()
             ),
         ),
-    )
-}
-
-/// Whether the surface names OS chrome rather than a window's own sub-surface:
-/// the kinds an adapter may resolve directly, with no owning application and
-/// no window in the inventory. Derived from the [`SnapshotSurface`] variant
-/// alone - never from a platform check - so the seam stays platform-neutral.
-fn is_shell_surface(surface: crate::SnapshotSurface) -> bool {
-    matches!(
-        surface,
-        crate::SnapshotSurface::StartMenu
-            | crate::SnapshotSurface::Taskbar
-            | crate::SnapshotSurface::SystemTray
-            | crate::SnapshotSurface::SystemTrayOverflow
-            | crate::SnapshotSurface::ActionCenter
-            | crate::SnapshotSurface::QuickSettings
-            | crate::SnapshotSurface::Dock
-            | crate::SnapshotSurface::MenuBarExtras
-    )
-}
-
-/// Surfaces a background app with no window still presents, read from its
-/// process; the owner then carries an empty window id.
-fn is_process_surface(surface: crate::SnapshotSurface) -> bool {
-    matches!(
-        surface,
-        crate::SnapshotSurface::Window
-            | crate::SnapshotSurface::Menubar
-            | crate::SnapshotSurface::MenuBarExtras
     )
 }
 

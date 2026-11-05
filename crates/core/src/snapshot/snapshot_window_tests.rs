@@ -312,9 +312,10 @@ fn the_seams_window_not_found_passes_through_with_its_suggestion() {
     );
 }
 
-/// A window-owned sub-surface, or an app's own status item, is never routed to
-/// the seam, even when the adapter implements it: the application path stays
-/// the answer for kinds some application owns.
+/// A window-owned sub-surface, an app's own status item, or a kind a shell may
+/// present asked for with an app named, is never routed to the seam, even when
+/// the adapter implements it: the application path stays the answer for kinds
+/// some application owns.
 #[test]
 fn a_window_owned_surface_kind_is_not_routed_to_the_seam() {
     let adapter = ShellSurfaceAdapter {
@@ -325,10 +326,67 @@ fn a_window_owned_surface_kind_is_not_routed_to_the_seam() {
     for surface in [
         crate::SnapshotSurface::Sheet,
         crate::SnapshotSurface::MenuBarExtras,
+        crate::SnapshotSurface::NotificationCenter,
+        crate::SnapshotSurface::Spotlight,
     ] {
         let resolved = resolve_window_for_surface(
             &adapter,
             Some("WhatsApp"),
+            None,
+            surface,
+            crate::Deadline::after(100).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(resolved.id, "w-1");
+    }
+}
+
+/// A shell that presents its notification center or launcher as its own
+/// surface takes keyboard focus from every window, so with no app named the
+/// seam's window is the answer the empty focused inventory cannot give.
+#[test]
+fn a_shell_presented_kind_takes_the_seams_window_when_no_window_is_focused() {
+    let adapter = ShellSurfaceAdapter {
+        windows: vec![],
+        resolution: Ok(shell_window()),
+    };
+
+    for surface in [
+        crate::SnapshotSurface::NotificationCenter,
+        crate::SnapshotSurface::Spotlight,
+    ] {
+        let resolved = resolve_window_for_surface(
+            &adapter,
+            None,
+            None,
+            surface,
+            crate::Deadline::after(100).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(resolved.id, "w-shell");
+    }
+}
+
+/// A platform that reads these kinds from an application refuses them at the
+/// seam; that refusal, unlike one for OS chrome, leaves the kind to the
+/// application path.
+#[test]
+fn a_shell_presented_kind_falls_back_to_the_application_path_on_any_refusal() {
+    let adapter = ShellSurfaceAdapter {
+        windows: vec![window("WhatsApp")],
+        resolution: Err(crate::AdapterError::new(
+            crate::ErrorCode::InvalidArgs,
+            "'notification-center' is not a shell surface this adapter resolves",
+        )),
+    };
+
+    for surface in [
+        crate::SnapshotSurface::NotificationCenter,
+        crate::SnapshotSurface::Spotlight,
+    ] {
+        let resolved = resolve_window_for_surface(
+            &adapter,
+            None,
             None,
             surface,
             crate::Deadline::after(100).unwrap(),

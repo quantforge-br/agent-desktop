@@ -60,6 +60,37 @@ impl SnapshotSurface {
         matches!(surface, Self::Window)
     }
 
+    /// Whether the kind names OS chrome rather than a window's own sub-surface:
+    /// the kinds an adapter may resolve directly, with no owning application and
+    /// no window in the inventory. Derived from the variant alone - never from a
+    /// platform check - so the seam stays platform-neutral.
+    pub(crate) fn is_shell_chrome(self) -> bool {
+        matches!(
+            self,
+            Self::StartMenu
+                | Self::Taskbar
+                | Self::SystemTray
+                | Self::SystemTrayOverflow
+                | Self::ActionCenter
+                | Self::QuickSettings
+                | Self::Dock
+                | Self::MenuBarExtras
+        )
+    }
+
+    /// Whether a shell may present the kind as its own surface where other
+    /// platforms read it from an application, as dux-shell does with its
+    /// notification center and launcher.
+    pub(crate) fn may_be_shell_presented(self) -> bool {
+        matches!(self, Self::NotificationCenter | Self::Spotlight)
+    }
+
+    /// Surfaces a background app with no window still presents, read from its
+    /// process; the owner then carries an empty window id.
+    pub(crate) fn is_process_surface(self) -> bool {
+        matches!(self, Self::Window | Self::Menubar | Self::MenuBarExtras)
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Window => "window",
