@@ -236,3 +236,21 @@ fn a_headless_policy_is_refused_before_the_center_is_touched() {
     assert_eq!(error.code, ErrorCode::PolicyDenied);
     assert!(world.log.borrow().is_empty());
 }
+
+#[test]
+fn the_card_a_two_card_group_lays_out_again_is_not_a_bystander() {
+    let world = shell(vec![note(1, "Mail", "a"), note(2, "Mail", "b")], false);
+    world.regroups.set(true);
+    let who = identity("Mail", "b");
+
+    let info = dismiss_in(
+        &world,
+        &world.signals(),
+        request(2, &who, InteractionPolicy::headed()),
+        &lease(),
+    )
+    .expect("dismissed");
+
+    assert_eq!(info.title, "b");
+    assert_eq!(world.titles(), vec!["a"]);
+}

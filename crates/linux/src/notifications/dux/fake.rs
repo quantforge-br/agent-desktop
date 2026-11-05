@@ -36,6 +36,8 @@ pub(super) struct FakeDux {
     pub(super) log: Rc<RefCell<Vec<String>>>,
     pub(super) heard: Rc<RefCell<Vec<Signal>>>,
     presses: Cell<usize>,
+    /// Lays a group left with one card out again under a new object, as the live shell does.
+    pub(super) regroups: Cell<bool>,
 }
 
 pub(super) fn shell(notes: Vec<Note>, open: bool) -> FakeDux {
@@ -53,6 +55,7 @@ pub(super) fn shell(notes: Vec<Note>, open: bool) -> FakeDux {
         log: Rc::new(RefCell::new(Vec::new())),
         heard: Rc::new(RefCell::new(Vec::new())),
         presses: Cell::new(0),
+        regroups: Cell::new(false),
     }
 }
 
@@ -189,7 +192,8 @@ impl FakeDux {
         );
         for app in Self::apps(&state) {
             let members: Vec<&Note> = state.notes.iter().filter(|note| note.app == app).collect();
-            let expanded = state.expanded.contains(&app);
+            let expanded =
+                state.expanded.contains(&app) && (members.len() > 1 || !self.regroups.get());
             let wrapper = format!("/g-{app}");
             node(&mut tree, Some("/f"), &wrapper, FILLER, "", shown);
             let lead = format!("{wrapper}/lead");

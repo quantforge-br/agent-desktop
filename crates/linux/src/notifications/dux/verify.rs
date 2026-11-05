@@ -7,7 +7,7 @@ use super::center::Center;
 use super::locate::find;
 use super::world::DuxWorld;
 use crate::notifications::signal::Signal;
-use crate::notifications::verify::pressed_without_effect;
+use crate::notifications::verify::{pressed_without_effect, same_identity};
 use crate::system::shell::light::same_object;
 
 const POLL: Duration = Duration::from_millis(100);
@@ -31,13 +31,33 @@ pub(crate) fn is_gone(after: &Center, card: &Card) -> bool {
 }
 
 /// The cards of `before`, other than the target, that `after` no longer
-/// holds: notifications that left while only the target should have.
+/// holds: notifications that left while only the target should have. A card
+/// whose object left but whose words `after` still shows is not one: a group
+/// that drops to one card lays that card out again under a new object.
 pub(crate) fn bystanders<'a>(before: &'a Center, after: &Center, target: &Card) -> Vec<&'a Card> {
     before
         .cards
         .iter()
-        .filter(|card| !same_object(&card.node, &target.node) && is_gone(after, card))
+        .filter(|card| {
+            !same_object(&card.node, &target.node)
+                && is_gone(after, card)
+                && !still_shown(before, after, target, card)
+        })
         .collect()
+}
+
+/// Whether `after` still shows as many cards with the words of `card` as
+/// `before` held besides the target.
+fn still_shown(before: &Center, after: &Center, target: &Card, card: &Card) -> bool {
+    let alike = |cards: &[Card]| {
+        cards
+            .iter()
+            .filter(|other| same_identity(&other.info, &card.info))
+            .count()
+    };
+    let expected =
+        alike(&before.cards).saturating_sub(usize::from(same_identity(&target.info, &card.info)));
+    alike(&after.cards) >= expected
 }
 
 /// How many notifications the service reported closed by a user's dismissal.
