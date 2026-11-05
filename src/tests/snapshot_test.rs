@@ -186,12 +186,14 @@ mod tests {
             } else {
                 assert_eq!(
                     json["error"]["code"], "PLATFORM_NOT_SUPPORTED",
-                    "the only failure a session without a bus may report: {json}"
+                    "the only failure a session without a bus or a display may report: {json}"
                 );
                 let message = json["error"]["message"].as_str().unwrap_or_default();
+                let names_the_bus = message.contains("AT-SPI accessibility bus is not available");
+                let names_the_display = json["error"]["details"]["display_unavailable"].is_string();
                 assert!(
-                    message.contains("AT-SPI accessibility bus is not available"),
-                    "the failure names the missing bus: {json}"
+                    names_the_bus || names_the_display,
+                    "the failure names the missing bus or display: {json}"
                 );
             }
         }
