@@ -217,6 +217,8 @@ fn finish(
     let code = report.terminal_code().unwrap_or(ErrorCode::ActionFailed);
     let suggestion = if code == ErrorCode::ActionFailed {
         "Wait for the target to become actionable, refresh the snapshot, or use an explicit physical/focus command if intended."
+    } else if code == ErrorCode::PolicyDenied {
+        crate::response::adapter_error::policy_denied_suggestion(request.policy)
     } else if evidence.state.role == "cell"
         && report.checks.iter().any(|check| {
             check.check == "editable" && check.status == super::status::ActionabilityStatus::Fail

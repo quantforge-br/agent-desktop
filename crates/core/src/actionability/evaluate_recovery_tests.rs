@@ -1,7 +1,7 @@
 use super::*;
 use crate::{Action, InteractionPolicy, Rect};
 
-fn unsupported(action: Action, policy: InteractionPolicy) -> AdapterError {
+fn refusal(action: Action, policy: InteractionPolicy) -> AdapterError {
     let evidence = ActionabilityEvidence {
         nonspatial: false,
         state: crate::ElementState {
@@ -31,9 +31,24 @@ fn unsupported(action: Action, policy: InteractionPolicy) -> AdapterError {
         crate::Deadline::standard().unwrap(),
     )
     .unwrap_err();
-    assert_eq!(error.code, ErrorCode::ActionNotSupported);
     assert_eq!(error.disposition, crate::DeliverySemantics::not_delivered());
     error
+}
+
+fn unsupported(action: Action, policy: InteractionPolicy) -> AdapterError {
+    let error = refusal(action, policy);
+    assert_eq!(error.code, ErrorCode::ActionNotSupported);
+    error
+}
+
+#[test]
+fn a_headless_pointer_gesture_refusal_names_the_headed_mode_that_completes_it() {
+    for action in [Action::RightClick, Action::DoubleClick, Action::TripleClick] {
+        let error = refusal(action.clone(), InteractionPolicy::headless());
+        assert_eq!(error.code, ErrorCode::PolicyDenied, "{action:?}");
+        let hint = error.suggestion.unwrap();
+        assert!(hint.contains("--headed"), "{action:?}: {hint}");
+    }
 }
 
 #[test]

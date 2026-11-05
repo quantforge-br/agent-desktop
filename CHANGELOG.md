@@ -19,6 +19,7 @@
 * On Linux, a headless `select` whose option index cannot be proved from the tree, and a headless click or expand of a native Wayland Qt combo box, return `POLICY_DENIED` with `details.kind: pointer_required` where a virtual pointer exists, so `--headed` can complete them.
 * On Linux, Qt actions are matched by their machine names (`ShowMenu`, `SetFocus`) although Qt reports their display names (`Show Menu`), so Qt combo boxes and menu buttons advertise and take their open action.
 * `scroll-to` on a target that reports it is off screen but has no bounds, as every off-screen GTK 3 widget does on Wayland, reaches the platform's scroll instead of ending in `TIMEOUT`, so it works on GTK 3 under Hyprland.
+* A ref action refused with `POLICY_DENIED` because it needs physical input, such as a headless `double-click`, `triple-click` or `right-click`, suggests `--headed` instead of asking for another element.
 * On Linux, GTK 4.24 menu-button popovers and GTK 3 popup menus under Hyprland are found and placed, so `--surface menu` snapshots and their item clicks work.
 
 ## [1.1.0](https://github.com/vercel-labs/agent-desktop/compare/v1.0.2...v1.1.0) (2026-11-02)

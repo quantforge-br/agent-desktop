@@ -281,7 +281,7 @@ impl AdapterError {
     }
 }
 
-fn policy_denied_suggestion(policy: InteractionPolicy) -> &'static str {
+pub(crate) fn policy_denied_suggestion(policy: InteractionPolicy) -> &'static str {
     if policy.allow_focus_steal && !policy.allow_cursor_move {
         "Enable cursor movement in the interaction policy to permit cursor-driven actions \
          (CLI: --headed; FFI: set allow_cursor_move in the policy), \
