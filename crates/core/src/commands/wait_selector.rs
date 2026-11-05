@@ -254,11 +254,18 @@ fn poll_error_json(err: &AppError) -> Value {
 }
 
 fn is_target_gone_error(err: &AppError) -> bool {
-    matches!(
-        err,
-        AppError::Adapter(e)
-            if matches!(e.code, ErrorCode::AppNotFound | ErrorCode::WindowNotFound)
-    )
+    let AppError::Adapter(error) = err else {
+        return false;
+    };
+    match error.code {
+        ErrorCode::AppNotFound | ErrorCode::WindowNotFound => true,
+        ErrorCode::ElementNotFound => error
+            .details
+            .as_ref()
+            .and_then(|details| details.get("kind"))
+            .is_some_and(|kind| kind == crate::SURFACE_ABSENT),
+        _ => false,
+    }
 }
 
 fn is_transient_poll_error(err: &AppError) -> bool {

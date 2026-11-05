@@ -43,7 +43,7 @@ Exit codes: `0` success, `1` structured error, `2` argument error. The `error` o
 |------|---------|----------|
 | `PERM_DENIED` | A required OS permission is missing | Read the platform skill |
 | `ELEMENT_NOT_FOUND` | Ref cannot be resolved in the live UI | Snapshot again |
-| `STALE_REF` | Ref no longer matches the live UI | Snapshot again, use the new ref |
+| `STALE_REF` | Ref no longer matches the live UI. `details.kind: "surface_closed"` means the menu or popup the ref was taken on is closed | Snapshot again, use the new ref. For `surface_closed`, reopen the surface first |
 | `AMBIGUOUS_TARGET` | Several live elements match the ref's identity, or it was not proven unique at capture | Act on a control unique in the window; identical twins need `--headed mouse-click --xy` (see `commands-observation.md`) |
 | `SNAPSHOT_NOT_FOUND` | Snapshot id missing or expired | Snapshot again |
 | `APP_NOT_FOUND` | App not running | `launch` it |

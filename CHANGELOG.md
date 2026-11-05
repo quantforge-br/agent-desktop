@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+* A ref taken on a menu or popup that has since closed returns `STALE_REF` with `details.kind: surface_closed`. A selector wait on a surface that is not open yet keeps polling, and a wait for the target to go succeeds with `target_absent: true` once the surface closes.
+
 ## [1.1.0](https://github.com/vercel-labs/agent-desktop/compare/v1.0.2...v1.1.0) (2026-11-02)
 
 ### ⚠ BREAKING CHANGES

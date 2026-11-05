@@ -377,3 +377,6 @@ fn gone_true_with_window_not_found_returns_immediately() {
 
 #[path = "wait_selector_retry_tests.rs"]
 mod retry_tests;
+
+#[path = "wait_selector_surface_tests.rs"]
+mod surface_tests;

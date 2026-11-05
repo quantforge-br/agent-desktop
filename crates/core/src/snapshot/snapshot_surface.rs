@@ -1,3 +1,8 @@
+/// The error-detail `kind` an adapter gives `ELEMENT_NOT_FOUND` when the
+/// requested surface, such as a menu, is not open: not yet for a selector
+/// wait that it appear, and over for one that it go.
+pub const SURFACE_ABSENT: &str = "surface_absent";
+
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]

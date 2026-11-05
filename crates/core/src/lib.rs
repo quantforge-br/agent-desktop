@@ -111,7 +111,7 @@ pub use session::interaction_lease::{
 };
 pub use session::process_lease_guard::ProcessLeaseGuard;
 pub use session::session_affinity::SessionAffinity;
-pub use snapshot::snapshot_surface::SnapshotSurface;
+pub use snapshot::snapshot_surface::{SURFACE_ABSENT, SnapshotSurface};
 pub use storage::file_lock::FileLock;
 pub use storage::private_file_ops::{
     PrivateFileOps, bounded_read, install_private_file_ops, temporary_file_name,

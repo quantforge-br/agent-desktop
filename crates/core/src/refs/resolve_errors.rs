@@ -61,6 +61,35 @@ pub fn mark_deadline_elapsed(mut error: AdapterError) -> AdapterError {
     error.with_details(details)
 }
 
+/// A ref taken on a surface that is no longer open, such as a closed menu, is
+/// stale: the surface's absence is the observed answer. The recovery is the
+/// ordinary stale one, a fresh snapshot and a retry, with the surface reopened
+/// first, because reopening it mints new refs rather than restoring this one.
+pub(crate) fn stale_when_surface_closed(error: AdapterError) -> AdapterError {
+    let surface = match (&error.code, error.details.as_ref()) {
+        (crate::ErrorCode::ElementNotFound, Some(details))
+            if details
+                .get("kind")
+                .is_some_and(|kind| kind == crate::SURFACE_ABSENT) =>
+        {
+            details
+                .get("surface")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null)
+        }
+        _ => return error,
+    };
+    AdapterError::stale_ref_because("The surface the ref was taken on is no longer open")
+        .with_suggestion(
+            "Reopen the surface through its opener, take a fresh snapshot of it, and use the new ref.",
+        )
+        .with_details(serde_json::json!({
+            "kind": "surface_closed",
+            "surface": surface,
+            "complete": true,
+        }))
+}
+
 #[cfg(test)]
 #[path = "resolve_errors_tests.rs"]
 mod tests;

@@ -274,7 +274,7 @@ fn observe_window(
         request,
         lease,
     )
-    .map_err(adapter_error)?;
+    .map_err(|error| super::resolve_errors::stale_when_surface_closed(adapter_error(error)))?;
     if let crate::locator::live_locator::ObservationSource::Window {
         renderer_accessibility_forced,
         ..

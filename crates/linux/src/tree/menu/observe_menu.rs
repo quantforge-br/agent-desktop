@@ -91,12 +91,19 @@ pub(crate) fn is_cut_short_beyond_pruning(node: &WalkedNode<ObservedRead>) -> bo
     (node.truncated && !is_pruned(node)) || node.children.iter().any(is_cut_short_beyond_pruning)
 }
 
+/// The menu surface is not open yet or any more: a selector wait on the
+/// surface keeps polling for it, and a wait for its element to go is over.
 fn menu_absent() -> AdapterError {
     AdapterError::new(
         ErrorCode::ElementNotFound,
         "The window does not present an open menu",
     )
     .with_suggestion("Open the menu first, then snapshot the menu surface")
+    .with_details(serde_json::json!({
+        "kind": agent_desktop_core::SURFACE_ABSENT,
+        "surface": "menu",
+        "retryable": true,
+    }))
 }
 
 fn outermost(popups: Vec<MenuPopup>) -> Result<MenuPopup, AdapterError> {

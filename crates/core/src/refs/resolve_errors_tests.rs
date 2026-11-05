@@ -84,3 +84,21 @@ fn mark_deadline_elapsed_fills_missing_details() {
 
     assert_eq!(stamped.details, Some(json!({ "deadline_elapsed": true })));
 }
+
+#[test]
+fn a_closed_surface_makes_its_ref_stale_and_other_errors_pass_through() {
+    let closed = AdapterError::new(crate::ErrorCode::ElementNotFound, "no open menu")
+        .with_details(serde_json::json!({ "kind": crate::SURFACE_ABSENT, "surface": "menu" }));
+    let stale = stale_when_surface_closed(closed);
+    assert_eq!(stale.code, crate::ErrorCode::StaleRef);
+    assert_eq!(stale.disposition, crate::DeliverySemantics::not_delivered());
+    assert!(stale.permits_retry_by_default());
+    let details = stale.details.expect("stale evidence");
+    assert_eq!(details["kind"], "surface_closed");
+    assert_eq!(details["surface"], "menu");
+    let missing = AdapterError::new(crate::ErrorCode::ElementNotFound, "element missing");
+    assert_eq!(
+        stale_when_surface_closed(missing).code,
+        crate::ErrorCode::ElementNotFound
+    );
+}
