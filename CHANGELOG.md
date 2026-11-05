@@ -33,6 +33,7 @@
 * A refusal that waiting cannot fix (`POLICY_DENIED`, `ACTION_NOT_SUPPORTED`) no longer lists a `stable` check it never waited for.
 * A name or description that mirrors a control's value when its ref is captured is not part of the ref's identity, so a GTK 3 slider ref stays valid after `set-value`. A name or description that was recorded keeps matching when a later value write makes the value equal to it.
 * `wait --window-id` without `--event` fails with `INVALID_ARGS` instead of being ignored, and a `wait` timeout suggests checking the target and its spelling instead of blaming a busy app.
+* Parse errors for a value that starts with a dash (`--x -100`, `clipboard-set -x`) and for app arguments passed to `launch` positionally say how to write them (`--x=-100`, `--`, `--arg=VALUE`). An MCP `tools/call` with a bare command name such as `list-apps` names the matching tool, `desktop_list_apps`.
 
 ## [1.1.0](https://github.com/vercel-labs/agent-desktop/compare/v1.0.2...v1.1.0) (2026-11-02)
 

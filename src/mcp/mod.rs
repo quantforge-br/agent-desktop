@@ -34,7 +34,7 @@ again. Repeat an action only when its disposition.retry is \"safe\".";
 /// The `mcp` subcommand; it lives outside `Commands` because it serves commands rather than being one.
 pub(crate) fn command() -> Command {
     Command::new("mcp").about(
-        "Serve every command as an MCP tool over stdio; global flags given here apply to every call",
+        "Serve every command as an MCP tool named desktop_<command> (desktop_list_apps) over stdio; global flags given here apply to every call",
     )
 }
 
@@ -207,13 +207,24 @@ impl Server {
             .tools
             .iter()
             .find(|tool| tool.name == name)
-            .ok_or_else(|| RpcError::new(-32602, format!("Unknown tool: {name}")))?;
+            .ok_or_else(|| self.unknown_tool(name))?;
         let arguments = match params.get("arguments") {
             None | Some(Value::Null) => Map::new(),
             Some(Value::Object(arguments)) => arguments.clone(),
             Some(_) => return Err(RpcError::new(-32602, "Tool arguments must be an object")),
         };
         Ok(call::call(tool, &arguments, &self.globals, &self.calls, id))
+    }
+
+    /// The protocol error for a name outside the catalog. It names the `desktop_` tool for a bare CLI command name such as `list-apps`, and otherwise states the naming rule.
+    fn unknown_tool(&self, name: &str) -> RpcError {
+        let guess = format!("desktop_{}", name.replace(['-', ' '], "_"));
+        let hint = if self.tools.iter().any(|tool| tool.name == guess) {
+            format!("Did you mean {guess}?")
+        } else {
+            "Tool names are desktop_ plus the command with hyphens as underscores, such as desktop_list_apps; tools/list names them all.".to_owned()
+        };
+        RpcError::new(-32602, format!("Unknown tool: {name}. {hint}"))
     }
 }
 

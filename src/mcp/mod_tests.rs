@@ -67,6 +67,21 @@ fn unknown_tools_are_protocol_errors() {
 }
 
 #[test]
+fn a_bare_command_name_is_answered_with_its_tool_name() {
+    let Err(error) = server().handle(&Value::Null, "tools/call", &json!({ "name": "list-apps" }))
+    else {
+        panic!("a bare command name is not a tool");
+    };
+    assert_eq!(error.code, -32602);
+    assert!(error.message.contains("Did you mean desktop_list_apps?"));
+    let Err(error) = server().handle(&Value::Null, "tools/call", &json!({ "name": "nothing" }))
+    else {
+        panic!("an unknown name is not a tool");
+    };
+    assert!(error.message.contains("desktop_list_apps"));
+}
+
+#[test]
 fn instructions_name_only_tools_that_exist() {
     let names = catalog::tools()
         .into_iter()

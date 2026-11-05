@@ -109,6 +109,33 @@ pub(crate) fn clap_error_summary(message: &str) -> String {
     summary
 }
 
+/// A recovery hint for the parse failures a caller causes by writing a value
+/// that starts with a dash, or by passing arguments to `launch` positionally.
+///
+/// `summary` is the output of [`clap_error_summary`]. Clap reports such a value
+/// as an unknown argument and says nothing about how to pass it.
+pub(crate) fn clap_parse_hint(command: &str, summary: &str) -> Option<&'static str> {
+    let token = summary
+        .split_once("unexpected argument '")?
+        .1
+        .split_once("' found")?
+        .0;
+    if command == "launch" {
+        return Some(
+            "launch takes the app name only; pass each app argument as --arg=VALUE (repeatable)",
+        );
+    }
+    let value = token.strip_prefix('-')?;
+    if value.starts_with(|c: char| c.is_ascii_digit() || c == '.') {
+        return Some(
+            "a negative number after an option is read as a flag; write it with = (--x=-100)",
+        );
+    }
+    Some(
+        "a value that starts with a dash is read as a flag; write an option value with = (--opt=-x), or put a positional value after -- (clipboard-set -- -x)",
+    )
+}
+
 #[cfg(test)]
 #[path = "diagnostic_clap_tests.rs"]
 mod clap_tests;

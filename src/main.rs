@@ -123,9 +123,12 @@ fn report_parse_failure(e: clap::Error) -> ExitCode {
             Err(write_err) => report_output_failure(write_err),
         };
     }
-    let summary = diagnostic::clap_error_summary(&e.to_string());
-    let error = AppError::invalid_input(diagnostic::bounded_text(&summary, 512));
     let command_name = diagnostic::clap_command_name(std::env::args().skip(1));
+    let mut summary = diagnostic::clap_error_summary(&e.to_string());
+    if let Some(hint) = diagnostic::clap_parse_hint(&command_name, &summary) {
+        summary = format!("{summary}. {hint}");
+    }
+    let error = AppError::invalid_input(diagnostic::bounded_text(&summary, 512));
     if let Err(write_err) = emit_response(&Response::err(
         &command_name,
         ErrorPayload::from_app_error(&error),
