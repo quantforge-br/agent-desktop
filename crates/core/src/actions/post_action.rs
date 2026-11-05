@@ -7,8 +7,23 @@ use crate::{
 pub fn execute_verified_action(
     adapter: &dyn PlatformAdapter,
     handle: &NativeHandle,
+    request: ActionRequest,
+    lease: &InteractionLease,
+) -> Result<ActionResult, AdapterError> {
+    execute_verified_action_rebinding(adapter, handle, request, lease, &|_| None)
+}
+
+/// `execute_verified_action` for a target that can be found again. An
+/// application may replace the element its own action changed, as a toolbar
+/// that re-renders its toggle does; when the original element is gone or
+/// still reads the old state, `replacement` finds the element the target now
+/// resolves to, and a replacement that shows the requested change verifies it.
+pub(crate) fn execute_verified_action_rebinding(
+    adapter: &dyn PlatformAdapter,
+    handle: &NativeHandle,
     mut request: ActionRequest,
     lease: &InteractionLease,
+    replacement: &dyn Fn(crate::Deadline) -> Option<NativeHandle>,
 ) -> Result<ActionResult, AdapterError> {
     let action = request.action.clone();
     if !action.requires_state_readback() {
@@ -72,6 +87,27 @@ pub fn execute_verified_action(
         changing = value_of(&next) != value_of(&observed);
         observed = next;
     }
+    let unmet = observed.as_ref().map_or_else(
+        |error| error.code == ErrorCode::StaleRef,
+        |observed| {
+            matches_postcondition(&action, before.as_ref(), expected_text.as_deref(), observed)
+                == Some(false)
+        },
+    );
+    let mut rebound = false;
+    if execution.is_ok()
+        && unmet
+        && let Some(next) = replacement(deadline)
+    {
+        let read = adapter.get_live_element(&next, deadline);
+        if read.as_ref().is_ok_and(|read| {
+            matches_postcondition(&action, before.as_ref(), expected_text.as_deref(), read)
+                == Some(true)
+        }) {
+            observed = read;
+            rebound = true;
+        }
+    }
     let mut result = match execution {
         Ok(result) => result,
         Err(mut error) => {
@@ -130,6 +166,9 @@ pub fn execute_verified_action(
     let details = result.details.get_or_insert_with(|| serde_json::json!({}));
     if let Some(details) = details.as_object_mut() {
         details.insert("verification_scope".into(), "element_state".into());
+        if rebound {
+            details.insert("verification_target".into(), "replacement".into());
+        }
         if action.writes_element_value() {
             details.insert("verification_scope".into(), "element_value".into());
             details.insert("application_commit".into(), "not_verified".into());
@@ -268,3 +307,7 @@ mod tests;
 #[cfg(test)]
 #[path = "post_action_toggle_tests.rs"]
 mod toggle_tests;
+
+#[cfg(test)]
+#[path = "post_action_rebind_tests.rs"]
+mod rebind_tests;

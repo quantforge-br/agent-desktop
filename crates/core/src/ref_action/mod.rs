@@ -139,8 +139,13 @@ pub(crate) fn dispatch_resolved_landing(
     let presentation_action = request.action.clone();
     let ripples = presentation::effect_ripples(&final_target, &presentation_action);
     presentation::before_dispatch(&final_target, &preflight, &presentation_action, lease);
-    let dispatch_result =
-        crate::execute_verified_action(final_target.adapter, final_target.handle, request, lease);
+    let dispatch_result = crate::actions::post_action::execute_verified_action_rebinding(
+        final_target.adapter,
+        final_target.handle,
+        request,
+        lease,
+        &|deadline| resolve_saved_ref(target.adapter, target.entry, deadline, Some(lease)).ok(),
+    );
     let mut preflight = preflight;
     if presentation::after_text_entry(&final_target, &presentation_action, &dispatch_result) {
         preflight.presentation_bounds = None;
