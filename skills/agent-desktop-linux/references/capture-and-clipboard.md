@@ -49,14 +49,16 @@ agent-desktop screenshot /tmp/everything.png
 
 ```bash
 agent-desktop screenshot --window-id "$WINDOW_ID" /tmp/window.png
-agent-desktop screenshot --screen 1 /tmp/screen1.png
+agent-desktop screenshot --screen 0 /tmp/screen0.png
 ```
 
 Hyprland copies frames through `ext-image-copy-capture-v1`, with no portal and
 no dialog. A window target (`--app`, `--window-id`) is captured from its own
 surface by its Hyprland stable id, covered or not; a display target is copied
-by connector name at its own scale. The pointer is not painted. The portal
-notes below do not apply.
+by connector name at its own scale. `--screen` is a 0-based index into
+`list-displays`. A window capture never shows the pointer; a display capture
+can, because in a nested session Hyprland draws the pointer into the frame it
+copies. The portal notes below do not apply.
 
 ## `screenshot` on GNOME Wayland
 

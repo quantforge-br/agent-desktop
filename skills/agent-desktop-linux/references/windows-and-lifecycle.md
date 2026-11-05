@@ -30,7 +30,7 @@ Hyprland.
   act on the active one and, when exactly two share the title, on its twin. Any
   other tie (no active window, a window that is not the active one among three or
   more twins, an active window of another title) is refused with cause
-  `ambiguous_window`.
+  `ambiguous_window`, and under Hyprland with `hyprland_client_ambiguous`.
 - `list-windows` lists the focused window first, then the others in X11 stacking
   order, top to bottom. A window with no single X11 client (twins the active
   window does not separate, a Wayland session) follows in registry order.
@@ -173,8 +173,10 @@ snapshot `--surface sheet`, answer it, then run `list-windows`.
   `not_delivered`: answer it without `--headed`.
 - `--force` sends `SIGTERM` through a pidfd, then `SIGKILL` after 2 s; a stopped
   process gets `SIGKILL` at once.
-- A process of a Wayland session with no X11 window is `ACTION_NOT_SUPPORTED`,
-  cause `wayland_session`.
+- On GNOME Wayland a process with no X11 window is `ACTION_NOT_SUPPORTED`,
+  cause `wayland_session`. Under Hyprland the close request goes through
+  Hyprland's window close dispatcher, and only a process with no Hyprland
+  window gets that refusal.
 - Protection follows the target process instance, never its name. `INVALID_ARGS`,
   `not_delivered`, for:
   - the owner of the active display socket, or of the X root's supporting-WM
@@ -183,7 +185,9 @@ snapshot `--surface sheet`, answer it, then run `list-windows`.
     window manager manages, or one its accessibility tree lists: a native Wayland
     window is only there) and was started by the session (it owns a session-bus
     name, runs as a user service unit, or is a child of the display owner: portal
-    backends, shell helpers, decoration hosts), unless this tool launched it.
+    backends, shell helpers, decoration hosts), unless this tool launched it;
+  - the session's dux-shell, the `quickshell` process recognised as the shell,
+    whatever windows it shows.
 
   A process that does not answer on the accessibility bus (stopped or hung) is
   protected when it owns a session-bus name and the window manager manages no

@@ -88,12 +88,12 @@ agent-desktop minimize --app "TextEdit"   # maximize, restore likewise
 Commands: `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action`, `wait --notification`. They drive the OS notification surface: Notification Center on macOS, Action Center on Windows, the GNOME Shell message list on Linux. Command shapes and JSON fields are the same on each. The platform skill states its limits.
 
 - Output is verbatim. Titles and bodies are not redacted. Treat anything you route onward as sensitive.
-- On macOS and Windows, headless listing works only when the surface is already open. When it is closed, a strict-headless call returns `POLICY_DENIED`. Use `--headed`, which may open the surface and restore the earlier foreground app. Linux lists headless even when the list is closed.
+- On macOS and Windows, headless listing works only when the surface is already open. When it is closed, a strict-headless call returns `POLICY_DENIED`. Use `--headed`, which may open the surface and restore the earlier foreground app. Linux under GNOME Shell lists headless even when the list is closed; under dux-shell it behaves like macOS and Windows.
 - Every mutation needs `--headed`. A single-notification mutation also needs a fingerprint from the same listing: `--expected-app` or `--expected-title`. Notifications reorder between listings. When the row at the index no longer matches, the call returns `NOTIFICATION_NOT_FOUND` and presses nothing. Without a fingerprint, `INVALID_ARGS`.
 - `list-notifications` returns `{ index, app_name, title, body, actions }`, with 1-based indexes. `--app`, `--text`, `--limit` filter.
 - `notification-action INDEX "Reply"` clicks a named button. An action the entry lacks returns `ACTION_NOT_SUPPORTED` and changes nothing.
-- `dismiss-all-notifications` returns `{ dismissed_count, failures, failed_count }`. A failure to close the surface afterward is not reported as an error.
-- `wait --notification` detects a new entry against a baseline taken at wait start. Transient errors retry within `--timeout`. On macOS and Windows, a headless wait sees only an already-open surface.
+- `dismiss-all-notifications` returns `{ dismissed_count }`, plus `failures` and `failed_count` when an entry in scope could not be closed. A failure to close the surface afterward is not reported as an error.
+- `wait --notification` detects a new entry against a baseline taken at wait start. Transient errors retry within `--timeout`. On macOS, Windows and Linux under dux-shell, a headless wait sees only an already-open surface.
 
 ## Clipboard
 

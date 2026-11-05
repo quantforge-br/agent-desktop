@@ -49,7 +49,7 @@ semantic actions need no helper tool.
 | Displays | `list-displays` | Works |
 | Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. GNOME Wayland: portal consent, with display cropping. Hyprland: a window or display through `ext-image-copy-capture`, no dialog. No selector returns the primary display. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
-| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
+| Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME and on dux-shell, where it needs the center open or `--headed`. `--window` sees windows only: an in-window libadwaita sheet is a surface, reported in an action's `data.surfaces` and by `list-surfaces` |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell and dux-shell. dux-shell lists with the center open or `--headed`, and every mutation needs `--headed`. GNOME: list headless, mutations `--headed` on X11, and `dismiss-notification` and `notification-action` also need `--expected-app` or `--expected-title`. Fields are read from the shell's widget layout, verified on GNOME Shell 46.0 only, and each mutation is proven by its effect. Wayland refuses the shell pointer before input. A notification owner that is not the shell or its own helper returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |
 | Shell surfaces | `open-system-surface` | dux-shell opens `notification-center`, `quick-settings`, `spotlight`, `dock` and `system-tray` over its IPC, `--headed` unless already shown. On GNOME only `system-tray` and `action-center` can work. `system-tray` needs a StatusNotifierWatcher (else it refuses with `watcher: absent`); `action-center` needs proven role ancestry. `quick-settings` refuses with `shell_container_unproven`, `taskbar` always refuses, and `start-menu` and `system-tray-overflow` are not supported, though `--help` lists them. See the shell reference |
 | Cursor overlay | `cursor-overlay` | Requires an active session; see Cursor overlay below. X11 enable returns `data.rendered: true`; Wayland saves the setting with `data.rendered: false` |
@@ -211,10 +211,17 @@ cursor; on Wayland none is drawn.
 - In key combos `cmd` and `meta` are the Super key. Key names are the macOS and
   Windows names plus X keysym names. `press` takes mapped keys only; `type`
   handles characters the layout cannot produce.
-- Window ops act on X11 clients; `focus-window` and headed scoped `press` require
-  an X11 session. Headless scoped `press` requires live target focus on either
-  display server. Focusing a window on another workspace can switch the user's
-  current desktop.
+- Window ops act on X11 clients and, under Hyprland, on Hyprland's clients;
+  `focus-window` and headed scoped `press` require X11 or Hyprland. Headless
+  scoped `press` requires live target focus on every display server. Under
+  Hyprland a window is focused only while it is Hyprland's active window and
+  its frame carries `ACTIVE`, so a shell layer that holds the keyboard (a
+  launcher, a notification center) makes scoped `press` refuse and
+  `focus-window` fail until it closes. Focusing a window on another workspace
+  can switch the user's current desktop.
+- A GTK click can change the application's state a few hundred milliseconds
+  after `click` returns `delivered_unverified`. Verify with `wait --element
+  <ref> --predicate value --value <expected>` rather than one immediate read.
 - The exact FFI ref calls (`ad_resolve_element_exact` and
   `ad_execute_ref_action_exact_with_policy`) fail with `ACTION_NOT_SUPPORTED` on every
   platform; their bounds rule applies first: bounds must be window-relative.

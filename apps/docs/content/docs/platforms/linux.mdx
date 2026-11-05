@@ -84,6 +84,7 @@ Ref actions are semantic AT-SPI calls that never move the pointer or change the 
 On a Hyprland session, detected when `HYPRLAND_INSTANCE_SIGNATURE` names the instance that serves this session's `WAYLAND_DISPLAY`, agent-desktop controls windows through Hyprland's request socket and sends input through Wayland virtual devices:
 
 - `list-windows`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore`, and `close-app` work on native Wayland and Xwayland windows. `minimize` parks a window on the special workspace `special:minimized`.
+- A window counts as focused while it is Hyprland's active window and its frame reports `ACTIVE`. While a shell layer holds the keyboard, such as the dux-shell launcher, a scoped `press` refuses with `ACTION_FAILED` and sends nothing.
 - Keys go through a virtual keyboard whose keymap holds the keys being sent, so `--headed type` takes accented and non-Latin text.
 - `--headed` pointer commands and physical ref clicks go through a virtual pointer. A native Wayland Qt combo box opens only for real pointer input, so a headless `click`, `expand`, or `select` on one returns `POLICY_DENIED` with `details.kind: "pointer_required"`; run it again with `--headed`.
 - `screenshot` copies a window or a display through `ext-image-copy-capture-v1`, with no consent dialog.

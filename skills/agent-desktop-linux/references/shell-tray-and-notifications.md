@@ -158,20 +158,41 @@ was started by `dms run`. GNOME Shell keeps precedence when its name is owned.
   unless the surface is already on screen; the window returned is the one
   Hyprland maps as the surface's layer (`j/layers`) and AT-SPI exposes with the
   same size. `start-menu`, `menubar` and `system-tray-overflow` fail with
-  `INVALID_ARGS` naming what the shell offers. Snapshot `notification-center`
-  and `spotlight` with `--window-id` taken from `open-system-surface`.
+  `INVALID_ARGS` naming what the shell offers. `snapshot --surface
+  notification-center` and `--surface spotlight` read the surface the shell
+  shows now; a `--window-id` taken from `open-system-surface` must still be
+  that surface's window, and one from a shell that has since restarted is
+  `STALE_REF`.
+- **Windows.** `list-windows` lists the shell's panels as untitled
+  `quickshell` windows without `bounds`, beside any titled window the shell
+  opens. `close-app` refuses the shell itself with `INVALID_ARGS`, as a
+  protected session process, with or without `--force`.
 - **Notifications.** The center exists in the accessibility tree only while it
-  is open, so `list-notifications` needs it open already or `--headed`; it is
-  opened over IPC, groups are expanded for the read, and both are restored. The
-  mutating commands (`dismiss-notification`, `dismiss-all-notifications`,
-  `notification-action`) press the card's own controls through AT-SPI and
-  require `--headed`. Proof is independent of the press: the card leaving the
-  tree, exactly one `NotificationClosed` with reason 2, and `ActionInvoked` for
-  an action. An action closes the center itself. A press with no effect is
+  is open, so `list-notifications` and `wait --notification` need it open
+  already or `--headed`; it is opened over IPC, groups are expanded for the
+  read, and both are restored. The mutating commands (`dismiss-notification`,
+  `dismiss-all-notifications`, `notification-action`) press the card's own
+  controls through AT-SPI and require `--headed`. Proof is independent of the
+  press: the card leaving the tree, exactly one `NotificationClosed` with
+  reason 2, and `ActionInvoked` for an action. A card that the shell lays out
+  again under a new object, as it does when a group drops to one card, has
+  not left. An action closes the center itself. A press with no effect is
   `delivered_unverified`.
-- **Limits.** An app name containing `". "` splits wrongly into app and title;
-  a group shows at most ten cards, and a larger one fails rather than listing
-  part; `dock` is revealed over IPC and not hidden again; the tray needs the
+- **Order.** Indices follow the center's layout, which groups cards by
+  application, so an older card of one application can sit above a newer
+  card of another. The index `wait --notification` reports can move once the
+  center lays its groups out again; re-list and pass `--expected-app` or
+  `--expected-title` before acting on it.
+- **Limits.** An app name containing `". "` splits wrongly into app and title.
+  The center builds cards only for the part of its list on screen, about four
+  to six cards at 800 pixels high, and nothing in the tree scrolls it: a center
+  holding more than it shows makes every listing, wait and mutation fail with
+  `INTERNAL`, `details.kind: center_overflow`, `not_delivered`, and a retry
+  reads the same part. Dismiss notifications that are no longer needed, for
+  example with `--headed dismiss-all-notifications --app <app>`, until the
+  rest fit. A headed `dismiss-all-notifications` opens and closes the center
+  even when it holds nothing, which takes about three seconds. `dock` is
+  revealed over IPC and not hidden again; the tray needs the
   StatusNotifierWatcher owned by the shell (`no_watcher` / `foreign_watcher`
   otherwise).
 - **Pointer gate.** Controls the shell can only reach by a physical click are
@@ -298,18 +319,32 @@ Single-item `dismiss-notification` and `notification-action` require
 
 ## Surfaces that `open-system-surface` accepts
 
-`open-system-surface --help` shows the values of every platform. On Linux only
-two can work:
+`open-system-surface --help` shows the values of every platform. What works on
+Linux depends on the shell. Under GNOME Shell only two can work:
 
-| Value | Result |
-|-------|--------|
+| Value | Result on GNOME Shell |
+|-------|-----------------------|
 | `system-tray` | Needs `org.kde.StatusNotifierWatcher`. Without it: `PLATFORM_NOT_SUPPORTED`, `watcher: absent`, the same refusal as `snapshot --surface system-tray`. No window is returned |
 | `action-center` | Opens the GNOME message list when its container and opener are proven; otherwise `ACTION_NOT_SUPPORTED`, `shell_container_unproven` |
 | `quick-settings` | `ACTION_NOT_SUPPORTED`, `shell_container_unproven`, before any input |
 | `taskbar` | `INVALID_ARGS`: no stock shell shows a dock |
 | `start-menu`, `system-tray-overflow`, other values | `INVALID_ARGS`, naming `system-tray`, `action-center` and `quick-settings` |
 
-Retrying an unsupported value gives the same refusal.
+Under dux-shell, five surfaces open over the shell's IPC and return the window
+of their layer:
+
+| Value | Result on dux-shell |
+|-------|---------------------|
+| `notification-center`, `action-center` | The notification center |
+| `quick-settings` | The control center |
+| `spotlight` | The launcher |
+| `dock`, `taskbar` | The dock, left shown |
+| `system-tray` | The top bar, which needs the shell's own StatusNotifierWatcher |
+| `start-menu`, `menubar`, `menu-bar-extras`, `system-tray-overflow` | `INVALID_ARGS`, naming the surface the shell offers instead |
+
+Each needs `--headed` unless the surface is already on screen; a headless call
+for a hidden one is `POLICY_DENIED`. Retrying an unsupported value gives the
+same refusal.
 
 ## StatusNotifierItem and AppIndicator tray
 

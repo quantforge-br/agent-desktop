@@ -220,10 +220,23 @@ apply.
   no minimized state: `minimize` parks the window on the special workspace
   `special:minimized`, which `list-windows` reports as `minimized`, and
   `restore` or `focus-window` brings it back. A tiled window becomes floating
-  before a move or resize, because only floating windows move freely. When a
-  process lists more frames than it has clients, as dux-shell does with its
-  untitled panel frames, a client goes only to the frame with its title: the
-  other frames are listed without `bounds` and never as focused.
+  before a move or resize, because only floating windows move freely; it
+  floats at the size Hyprland gives it, so follow a move with
+  `resize-window` when the size matters, and `restore` does not tile it
+  again. When a process lists more frames than it has clients, as dux-shell
+  does with its untitled panel frames, a client goes only to the frame with
+  its title: the other frames are listed without `bounds` and never as
+  focused.
+- **Focus.** A window is focused while it is Hyprland's active window and its
+  frame carries `ACTIVE`. A shell layer that takes the keyboard, such as the
+  dux-shell launcher or notification center, leaves Hyprland's active window
+  in place but takes `ACTIVE` from its frame: until the layer closes, scoped
+  `press` is `ACTION_FAILED` with `check: window_active`, `not_delivered`,
+  and `focus-window` is `ACTION_FAILED`. Two windows of one process with one
+  title are told apart as on X11: the frame the toolkit reports active is
+  Hyprland's active window and, with two of them, the other frame is the
+  other window. Neither frame active leaves both without `bounds`, and their
+  window operations are `AMBIGUOUS_TARGET`, cause `hyprland_client_ambiguous`.
 - **Keys.** `press`, `--headed type` and key steps use a
   `zwp_virtual_keyboard_v1` device whose keymap is made from the keys being
   sent, so accented and non-Latin characters type without
@@ -250,7 +263,9 @@ apply.
   so `--surface menu` snapshots and item clicks work headless.
 - **Capture.** `screenshot` copies a display by connector name or a window by
   its Hyprland stable id through `ext-image-copy-capture-v1`. There is no
-  consent dialog, and the pointer is not painted.
+  consent dialog. A window capture never shows the pointer. A display capture
+  can show it: in a nested session Hyprland draws the pointer into the frame
+  it copies.
 
 ## Wheel and scroll
 
