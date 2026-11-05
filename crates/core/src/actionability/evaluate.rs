@@ -144,11 +144,15 @@ pub(super) fn build_report(
         checks.push(visibility);
     }
     if requirements.requires_stability(pointer_delivery) {
-        checks.push(if without_pointer {
-            gates::stability_without_pointer(evidence, stability)
-        } else {
-            gates::stability(stability, evidence.bounds)
-        });
+        checks.push(
+            if matches!(request.action, crate::actions::action::Action::ScrollTo) {
+                gates::scroll_target_stability(evidence, stability)
+            } else if without_pointer {
+                gates::stability_without_pointer(evidence, stability)
+            } else {
+                gates::stability(stability, evidence.bounds)
+            },
+        );
     }
     if requirements.enabled {
         checks.push(gates::enabled(evidence));

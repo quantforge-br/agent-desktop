@@ -207,3 +207,19 @@ fn a_toggle_with_no_semantic_verb_needs_a_headed_click_and_names_the_policy_head
     let headless = action_supported(&clickable, &ActionRequest::headless(Action::Check));
     assert_eq!(headless.status, ActionabilityStatus::Pass);
 }
+
+#[test]
+fn scroll_to_an_off_screen_target_without_bounds_is_left_to_the_adapter() {
+    for headed in [false, true] {
+        let status = status_of(Action::ScrollTo, headed, Some(true), None, CLICK, "stable");
+        assert_eq!(status, Some(ActionabilityStatus::Pass), "headed {headed}");
+    }
+}
+
+#[test]
+fn scroll_to_a_target_of_unknown_place_and_no_bounds_stays_unknown() {
+    let status = status_of(Action::ScrollTo, false, None, None, CLICK, "stable");
+    assert_eq!(status, Some(ActionabilityStatus::Unknown));
+    let toggle = status_of(Action::Toggle, false, Some(true), None, TOGGLE, "stable");
+    assert_eq!(toggle, Some(ActionabilityStatus::Unknown));
+}

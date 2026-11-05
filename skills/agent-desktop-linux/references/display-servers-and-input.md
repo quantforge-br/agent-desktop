@@ -295,12 +295,15 @@ agent-desktop --headed mouse-wheel --x 640 --y 400 --dy 5
   `delivered_clicks`, `delivered_unverified` and unsafe retry. Inspect the
   content before the next step.
 - `scroll-to` scrolls through the bar on GTK3 and GTK4 and through `ScrollTo` on
-  Chromium. It does not work on Qt: use `scroll --headed`. A container with no
-  scrollable axis has no ref. If target visibility is unknown, `scroll-to`
-  refuses before scrolling; equally ranked scroll bars refuse with
-  `AMBIGUOUS_TARGET` before a value write. A scroll that moved the viewport
-  without revealing the target is unsafe to retry: inspect the target and
-  disposition first.
+  Chromium. It does not work on Qt: use `scroll --headed`. On Wayland GTK 3
+  reports no position for a widget that is off screen, so the bar is aimed from
+  the nearest sibling that is showing; a target with no showing sibling ends
+  `ACTION_FAILED`, cause `target_position_unknown`, `not_delivered`. A
+  container with no scrollable axis has no ref. If target visibility is
+  unknown, `scroll-to` refuses before scrolling; equally ranked scroll bars
+  refuse with `AMBIGUOUS_TARGET` before a value write. A scroll that moved the
+  viewport without revealing the target is unsafe to retry: inspect the target
+  and disposition first.
 
 ## Drag
 

@@ -80,6 +80,22 @@ pub(super) fn stability_without_pointer(
     stability(expectation, evidence.bounds)
 }
 
+/// `scroll-to` never aims a pointer, and its target is usually off screen, where
+/// a toolkit may report no position at all. A target that says whether it is on
+/// screen but has no bounds cannot be measured for stability; the adapter
+/// places it from its scroll container and re-reads it after scrolling.
+pub(super) fn scroll_target_stability(
+    evidence: &ActionabilityEvidence,
+    expectation: super::stability::StabilityExpectation,
+) -> ActionabilityCheck {
+    if evidence.bounds.is_none() && evidence.states_complete && evidence.state.offscreen.is_some() {
+        let mut check = pass("stable");
+        check.reason = Some("no pointer use; not measurable without bounds".to_owned());
+        return check;
+    }
+    stability(expectation, evidence.bounds)
+}
+
 pub(super) fn stability(
     expectation: super::stability::StabilityExpectation,
     bounds: Option<Rect>,
