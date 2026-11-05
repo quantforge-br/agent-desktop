@@ -14,17 +14,29 @@ pub(crate) fn report(
     deadline: Deadline,
 ) -> Result<PermissionReport, AdapterError> {
     crate::input::x11::stale_release::sweep();
-    let capture = capture_availability(
-        current(),
-        &DisplayGrabber,
-        deadline.capped(CAPTURE_PROBE_SLICE),
-    );
+    let capture = if hyprland_answers(deadline.capped(CAPTURE_PROBE_SLICE)) {
+        CaptureAvailability::Reachable
+    } else {
+        capture_availability(
+            current(),
+            &DisplayGrabber,
+            deadline.capped(CAPTURE_PROBE_SLICE),
+        )
+    };
     let probed = bus
         .get(deadline)
         .and_then(|connection| probe_registry(bus, &connection, deadline));
     let report = report_from_probe(probed, capture)?;
     deadline.ensure_remaining()?;
     Ok(report)
+}
+
+/// Whether this session's Hyprland answers a monitor request. Its capture
+/// route copies frames with `ext-image-copy-capture-v1` and asks nobody, so
+/// capture needs no permission there.
+fn hyprland_answers(deadline: Deadline) -> bool {
+    crate::system::hyprland::HyprInstance::detect()
+        .is_some_and(|instance| instance.monitors(deadline).is_ok())
 }
 
 /// Whether the accessibility registry answers on the session bus, which is
@@ -35,9 +47,10 @@ pub(crate) fn accessibility_answers(bus: &SharedBus, deadline: Deadline) -> bool
         .is_ok()
 }
 
-/// Whether the session's capture route answered. Only an X11 display that
-/// answers inside the deadline is `Reachable`; every other case, Wayland
-/// included, is `Unknown` because nothing was learned about the route.
+/// Whether the session's capture route answered. An X11 display or a
+/// Hyprland that answers inside the deadline is `Reachable`; every other
+/// case, GNOME Wayland included, is `Unknown` because nothing was learned
+/// about the route.
 pub(crate) enum CaptureAvailability {
     Reachable,
     Unknown,

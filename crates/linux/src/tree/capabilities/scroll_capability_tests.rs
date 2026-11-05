@@ -1,4 +1,4 @@
-use super::eligible;
+use super::{eligible, has_wheel_leg};
 use crate::system::display::display_cause::Cause;
 use crate::system::display::display_server::DisplayServer;
 use crate::system::display::display_unavailable::Unavailable;
@@ -36,4 +36,18 @@ fn wheel_eligibility_refuses_unsupported_routes() {
         detail: String::new(),
     });
     assert!(!eligible(SCROLL_PANE, &component, &unavailable));
+}
+
+#[test]
+fn a_wayland_session_has_a_wheel_leg_only_through_a_virtual_pointer() {
+    assert!(has_wheel_leg(&DisplayServer::Wayland, || true));
+    assert!(!has_wheel_leg(&DisplayServer::Wayland, || false));
+    assert!(has_wheel_leg(&x11(), || panic!(
+        "X11 needs no virtual pointer"
+    )));
+    let unavailable = DisplayServer::Unavailable(Unavailable {
+        cause: Cause::NotConfigured,
+        detail: String::new(),
+    });
+    assert!(!has_wheel_leg(&unavailable, || true));
 }

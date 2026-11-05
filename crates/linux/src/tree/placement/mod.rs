@@ -1,6 +1,7 @@
 pub(crate) mod display_bounds;
 pub(super) mod extents;
 pub(crate) mod frame_geometry;
+pub(crate) mod hypr_frame;
 pub(super) mod node_position;
 pub(crate) mod offscreen;
 pub(super) mod placed_states;

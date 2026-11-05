@@ -22,6 +22,7 @@ fn an_unnamed_showing_top_level_needs_a_complete_unique_accessible_window_size()
     let gtk4 = ToolkitId {
         name: Some("GTK".into()),
         version: Some("4.14.5".into()),
+        window_relative: false,
     };
     let panel = window(PANEL, "", 702);
     let main = window(FRAME, "Calculator", 360);
@@ -75,7 +76,8 @@ fn an_unnamed_showing_top_level_needs_a_complete_unique_accessible_window_size()
         std::slice::from_ref(&panel),
         &ToolkitId {
             name: Some("gtk".into()),
-            version: Some("3.24".into())
+            version: Some("3.24".into()),
+            window_relative: false,
         },
         expected
     ));
@@ -104,6 +106,7 @@ fn size_identity_uses_component_and_showing_evidence_without_reading_roles() {
     let gtk4 = ToolkitId {
         name: Some("gtk".into()),
         version: Some("4.14".into()),
+        window_relative: false,
     };
     for role in [DIALOG, FRAME, 43] {
         let mut node = window(role, "", 702);

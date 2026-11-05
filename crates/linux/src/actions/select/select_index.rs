@@ -214,6 +214,7 @@ mod tests {
             supports_indices(&crate::system::process::toolkit_id::ToolkitId {
                 name: Some(self.toolkit.into()),
                 version: Some("4.14.5".into()),
+                window_relative: false,
             })
         }
 

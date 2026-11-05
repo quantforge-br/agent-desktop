@@ -12,6 +12,7 @@ use super::mouse::drag_plan::plan_drag;
 use super::mouse::pointer_report::with_event_count;
 use super::plan::Plan;
 use super::wayland::keysym_send;
+use super::wayland::virtual_input::virtual_send;
 use super::x11::{mouse_send, session};
 
 pub(crate) fn send_plans(
@@ -21,7 +22,10 @@ pub(crate) fn send_plans(
 ) -> Result<Delivery, AdapterError> {
     match backend()? {
         Backend::X11(display) => session::run(&display, plans, gate, lease),
-        Backend::Wayland => Err(keysym_send::pointer_refusal("pointer_and_chord_input")),
+        Backend::Wayland => match virtual_send::compositor() {
+            Some(instance) => virtual_send::run_plans(instance, plans, gate, lease),
+            None => Err(keysym_send::pointer_refusal("pointer_and_chord_input")),
+        },
     }
 }
 
@@ -47,17 +51,23 @@ pub(crate) fn mouse_event(
         MouseEventKind::Up => return Err(super::standalone::reject_standalone("mouse_event up")),
         _ => {}
     }
-    match backend()? {
+    let delivery = match backend()? {
         Backend::X11(display) => {
             let plans = mouse_send::plans_for(&display, event, lease)?;
-            let delivery = session::run(&display, plans, &mut || Ok(()), lease)?;
-            Ok(with_event_count(
-                OperationReport::pointer_dispatched(event, false),
-                &delivery,
-            ))
+            session::run(&display, plans, &mut || Ok(()), lease)?
         }
-        Backend::Wayland => Err(keysym_send::pointer_refusal("mouse_event")),
-    }
+        Backend::Wayland => {
+            let Some(instance) = virtual_send::compositor() else {
+                return Err(keysym_send::pointer_refusal("mouse_event"));
+            };
+            let plans = mouse_send::plans_with(&virtual_send::planner_keymap(), event)?;
+            virtual_send::run_plans(instance, plans, &mut || Ok(()), lease)?
+        }
+    };
+    Ok(with_event_count(
+        OperationReport::pointer_dispatched(event, false),
+        &delivery,
+    ))
 }
 
 pub(crate) fn drag(
@@ -65,17 +75,23 @@ pub(crate) fn drag(
     lease: &InteractionLease,
 ) -> Result<OperationReport, AdapterError> {
     let deadline = lease.deadline();
-    match backend()? {
+    let delivery = match backend()? {
         Backend::X11(display) => {
             let plan = plan_drag(params, deadline)?;
-            let delivery = session::run(&display, vec![plan], &mut || Ok(()), lease)?;
-            Ok(with_event_count(
-                OperationReport::drag_dispatched(params),
-                &delivery,
-            ))
+            session::run(&display, vec![plan], &mut || Ok(()), lease)?
         }
-        Backend::Wayland => Err(keysym_send::pointer_refusal("drag")),
-    }
+        Backend::Wayland => {
+            let Some(instance) = virtual_send::compositor() else {
+                return Err(keysym_send::pointer_refusal("drag"));
+            };
+            let plan = plan_drag(params, deadline)?;
+            virtual_send::run_plans(instance, vec![plan], &mut || Ok(()), lease)?
+        }
+    };
+    Ok(with_event_count(
+        OperationReport::drag_dispatched(params),
+        &delivery,
+    ))
 }
 
 pub(crate) fn ensure_budget(deadline: Deadline) -> Result<(), AdapterError> {

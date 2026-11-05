@@ -55,7 +55,7 @@ pub(crate) fn target_steps(
         }
         _ => return Err(AdapterError::not_supported(action.name())),
     };
-    Ok(vec![physical_step(&backend, operation)])
+    Ok(vec![physical_step(world, &backend, operation)])
 }
 
 pub(crate) fn press_key_global_steps(
@@ -66,7 +66,7 @@ pub(crate) fn press_key_global_steps(
     ensure_budget(deadline)?;
     let backend = world.backend()?;
     send_combo(world, &backend, combo, &mut || Ok(()), deadline)?;
-    Ok(vec![physical_step(&backend, "press_key")])
+    Ok(vec![physical_step(world, &backend, "press_key")])
 }
 
 /// Presses a chord for one process under the caller's focus gate. The gate
@@ -82,18 +82,19 @@ pub(crate) fn press_for_process(
 ) -> Result<ActionResult, AdapterError> {
     ensure_budget(deadline)?;
     let backend = world.backend()?;
-    gate().map_err(|error| worded_for(error, policy, &backend))?;
+    let unactivatable = matches!(backend, Backend::Wayland) && !world.virtual_input();
+    gate().map_err(|error| worded_for(error, policy, unactivatable))?;
     send_combo(world, &backend, combo, gate, deadline)?;
     Ok(ActionResult::from_execution(
         &Action::PressKey(combo.clone()),
-        vec![physical_step(&backend, "press_key")],
+        vec![physical_step(world, &backend, "press_key")],
     ))
 }
 
 fn worded_for(
     mut error: AdapterError,
     policy: InteractionPolicy,
-    backend: &Backend,
+    unactivatable: bool,
 ) -> AdapterError {
     let focus = error
         .details
@@ -104,7 +105,7 @@ fn worded_for(
     if !focus {
         return error;
     }
-    let (message, suggestion) = if matches!(backend, Backend::Wayland) {
+    let (message, suggestion) = if unactivatable {
         (
             "The target application's active window could not be confirmed, so no key was sent",
             "On Wayland, bring the target window to the front yourself, then use global press without --app, --window-id or --headed; global keys go to the focused window and automatic activation is unavailable",
@@ -146,10 +147,17 @@ fn send_combo(
     Ok(())
 }
 
-fn physical_step(backend: &Backend, operation: &'static str) -> ActionStep {
+fn physical_step(
+    world: &impl PhysicalWorld,
+    backend: &Backend,
+    operation: &'static str,
+) -> ActionStep {
+    let virtual_keys = matches!(backend, Backend::Wayland) && world.virtual_input();
     let label = match (backend, operation) {
         (Backend::X11(_), "type_text") => "XTEST.type_text",
         (Backend::X11(_), _) => "XTEST.press_key",
+        (Backend::Wayland, "type_text") if virtual_keys => "VirtualKeyboard.type_text",
+        (Backend::Wayland, _) if virtual_keys => "VirtualKeyboard.press_key",
         (Backend::Wayland, "type_text") => "RemoteDesktop.type_text",
         (Backend::Wayland, _) => "RemoteDesktop.press_key",
     };

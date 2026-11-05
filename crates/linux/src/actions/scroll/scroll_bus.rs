@@ -11,6 +11,7 @@ use crate::actions::context::Target;
 use crate::actions::write::mutation::{WriteKind, WriteReply};
 use crate::actions::write::write_call::{Call, invoke};
 use crate::system::process::toolkit_id::ToolkitId;
+use crate::system::window::hypr_window::hypr_listing::HyprView;
 use crate::system::window::window_filter::frame_state;
 use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::{DisplayReader, X11Client, X11State};
@@ -83,6 +84,9 @@ impl<'a> BusPort<'a> {
     }
 
     fn every_window_hidden(&self) -> bool {
+        if let Some(view) = HyprView::of_session(self.deadline) {
+            return view.hides_every_window_of(self.element.pid());
+        }
         match DisplayReader.clients_within(self.deadline) {
             X11State::Ready { clients, .. } => every_window_hidden(&clients, self.element.pid()),
             _ => false,

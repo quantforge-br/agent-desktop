@@ -1,9 +1,13 @@
 pub(crate) mod bus_lookup;
 pub(crate) mod capture_env;
+pub(crate) mod capture_source;
 pub(crate) mod display;
 pub(crate) mod fullscreen_route;
+pub(crate) mod hypr_capture;
+pub(crate) mod image_copy;
 pub(crate) mod pixels;
 pub(crate) mod png_encode;
+pub(crate) mod shm_frame;
 pub(crate) mod wayland_crop;
 pub(crate) mod wayland_file;
 pub(crate) mod wayland_portal;

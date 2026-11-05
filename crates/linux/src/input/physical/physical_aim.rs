@@ -1,4 +1,4 @@
-use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Point};
+use agent_desktop_core::{AdapterError, DeliverySemantics, ErrorCode, Point, Rect};
 use serde_json::json;
 
 use crate::tree::hit_test::hit_guard::{admits, pixel};
@@ -50,3 +50,37 @@ pub(crate) fn validate(
         .with_disposition(DeliverySemantics::not_delivered())
     })
 }
+
+/// The point a pointer gesture without a proven point aims at: the centre of
+/// the part of `rect` its largest overlap with one display shows. An element
+/// taller than the monitor its window is on, as a window cropped by its
+/// tiling compositor has, keeps a reachable aim. A rect that overlaps no
+/// display keeps its own centre.
+pub(crate) fn visible_centre(rect: Rect, displays: &[Rect]) -> Point {
+    let shown = displays
+        .iter()
+        .filter_map(|display| overlap(&rect, display))
+        .max_by(|left, right| (left.width * left.height).total_cmp(&(right.width * right.height)))
+        .unwrap_or(rect);
+    Point {
+        x: shown.x + shown.width / 2.0,
+        y: shown.y + shown.height / 2.0,
+    }
+}
+
+fn overlap(rect: &Rect, display: &Rect) -> Option<Rect> {
+    let x = rect.x.max(display.x);
+    let y = rect.y.max(display.y);
+    let right = (rect.x + rect.width).min(display.x + display.width);
+    let bottom = (rect.y + rect.height).min(display.y + display.height);
+    (right > x && bottom > y).then_some(Rect {
+        x,
+        y,
+        width: right - x,
+        height: bottom - y,
+    })
+}
+
+#[cfg(test)]
+#[path = "physical_aim_tests.rs"]
+mod tests;

@@ -58,7 +58,7 @@ A command re-identifies the element from the ref before it acts. On macOS the re
 - `AMBIGUOUS_TARGET`, `details.kind: saved_ref_ambiguous`: an identical element appeared, so two live elements match. `identity_not_unique`: the ref was not proven unique at capture, so nothing was searched. That is an identical twin, which every snapshot refuses again, or a window the snapshot could not read whole in time, which a new snapshot with a larger `--timeout-ms` fixes.
 - `TIMEOUT`, `details.kind: resolution_identity_unknown`: a live read did not answer, so identity is unproven. Nothing was sent; retry.
 
-Off macOS, identical twins have no ref path: only `--headed mouse-click --xy X,Y` can choose one. It takes the foreground, and a Linux Wayland session refuses it.
+Off macOS, identical twins have no ref path: only `--headed mouse-click --xy X,Y` can choose one. It takes the foreground, and a GNOME Wayland session refuses it; Hyprland sends it through its virtual pointer.
 
 ### Surfaces
 

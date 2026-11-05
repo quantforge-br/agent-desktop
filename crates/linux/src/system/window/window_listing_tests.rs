@@ -18,6 +18,7 @@ fn app(toolkit: Option<(&str, &str)>) -> RegistryApp {
         ToolkitId {
             name: toolkit.map(|(name, _)| name.to_owned()),
             version: toolkit.map(|(_, version)| version.to_owned()),
+            window_relative: false,
         },
     )
 }

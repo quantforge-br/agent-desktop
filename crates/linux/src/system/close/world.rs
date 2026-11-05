@@ -2,7 +2,9 @@ use std::time::{Duration, Instant};
 
 use agent_desktop_core::{AdapterError, Deadline};
 
+use super::hypr_close;
 use crate::system::display::display_server::{DisplayServer, session_server};
+use crate::system::hyprland::HyprInstance;
 use crate::system::menu::surfaces;
 use crate::system::process::liveness::{self, Liveness};
 use crate::system::process::process_lookup::Lookup;
@@ -20,6 +22,15 @@ use crate::system::{
 
 const LATE_READ_MS: u64 = 300;
 const NESTED_LOOK_MS: u64 = 300;
+
+/// The top-level windows of `pid`: Hyprland's clients under Hyprland, the
+/// X11 display's otherwise.
+fn toplevels_within(pid: u32, deadline: Deadline) -> ControlRead<Vec<Toplevel>> {
+    match HyprInstance::detect() {
+        Some(hypr) => hypr_close::toplevels_of(&hypr, pid, deadline),
+        None => control::toplevels_of(pid, deadline),
+    }
+}
 
 /// What the close flow touches outside itself. The live implementation reads
 /// `/proc`, talks to the display server and signals through a descriptor; a
@@ -74,12 +85,12 @@ impl World for Live<'_> {
     }
 
     fn toplevels(&self) -> ControlRead<Vec<Toplevel>> {
-        control::toplevels_of(self.pid, self.deadline)
+        toplevels_within(self.pid, self.deadline)
     }
 
     fn toplevels_late(&self) -> ControlRead<Vec<Toplevel>> {
         match Deadline::detached_after(LATE_READ_MS) {
-            Ok(deadline) => control::toplevels_of(self.pid, deadline),
+            Ok(deadline) => toplevels_within(self.pid, deadline),
             Err(_) => ControlRead::Unavailable,
         }
     }
@@ -90,7 +101,13 @@ impl World for Live<'_> {
     }
 
     fn request_close(&self, window: u32) -> Result<(), ControlError> {
-        control::request_close(window, self.pid, self.instance, self.deadline)
+        let Some(hypr) = HyprInstance::detect() else {
+            return control::request_close(window, self.pid, self.instance, self.deadline);
+        };
+        if self.liveness() == Liveness::Gone {
+            return Err(ControlError::StaleWindow);
+        }
+        hypr_close::request_close(&hypr, self.pid, window, self.deadline)
     }
 
     fn signal(&self, signal: Signal) -> Result<Sent, AdapterError> {

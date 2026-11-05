@@ -1,11 +1,14 @@
 use agent_desktop_core::{AdapterError, Deadline};
 use zbus::Connection;
 
+use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::{SharedBus, within};
 use crate::tree::properties::node_read::call;
+use crate::tree::properties::toolkit_trust::screen_is_toplevel_relative;
 use crate::tree::{AtspiElement, COMPONENT_INTERFACE, Extents};
 
 pub(crate) const WINDOW_COORDINATES: u32 = 1;
+const SCREEN_COORDINATES: u32 = 0;
 
 /// One `GetExtents` in window coordinates. Unavailable or malformed geometry
 /// is unknown; a lost connection ends the read.
@@ -71,6 +74,41 @@ pub(crate) fn read_window_extents(
     within(
         deadline,
         read_window_extents_async(connection.inner(), element),
+    )
+    .ok()
+    .flatten()
+}
+
+/// The rectangle that places `element` inside its toplevel. That is the
+/// window rectangle, except for a GTK 3 client drawing natively on Hyprland:
+/// its window rectangles are relative to the popup surface that holds the
+/// node, and its screen rectangles are relative to the toplevel, popups
+/// included.
+pub(crate) async fn read_placing_extents_async(
+    connection: &Connection,
+    element: &AtspiElement,
+    toolkit: &ToolkitId,
+) -> Result<Option<Extents>, AdapterError> {
+    let coordinates = if screen_is_toplevel_relative(toolkit) {
+        SCREEN_COORDINATES
+    } else {
+        WINDOW_COORDINATES
+    };
+    read_extents_async(connection, element, coordinates).await
+}
+
+/// [`read_placing_extents_async`] under the deadline; `None` when it cannot
+/// be read in time.
+pub(crate) fn read_placing_extents(
+    bus: &SharedBus,
+    element: &AtspiElement,
+    toolkit: &ToolkitId,
+    deadline: Deadline,
+) -> Option<Extents> {
+    let connection = bus.get(deadline).ok()?;
+    within(
+        deadline,
+        read_placing_extents_async(connection.inner(), element, toolkit),
     )
     .ok()
     .flatten()

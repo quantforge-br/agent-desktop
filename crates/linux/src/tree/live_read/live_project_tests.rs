@@ -64,6 +64,7 @@ fn gtk4_entry_activation_is_refused_without_removing_real_click_verbs_or_bounds(
             toolkit: ToolkitId {
                 name: Some("GTK".into()),
                 version: Some(version.into()),
+                window_relative: false,
             },
             ..Placement::default()
         };

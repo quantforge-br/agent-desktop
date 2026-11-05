@@ -28,7 +28,10 @@ the session bus, display and runtime directory come from its environment. A TTY
 login, an SSH shell without session variables, a container without a bus or
 another user's session sees no apps. GNOME is the measured desktop; X11 and
 Wayland sessions both work and differ in input, capture and window control.
-Observation and semantic actions need no helper tool.
+Hyprland 0.57 is measured too: it drives windows over
+Hyprland's socket and sends keys and pointer input through virtual devices
+(`references/display-servers-and-input.md`, Hyprland). Observation and
+semantic actions need no helper tool.
 
 ## Capability Table
 
@@ -37,14 +40,14 @@ Observation and semantic actions need no helper tool.
 | Observation | `snapshot`, `find`, `get`, `is` | Works on X11 and Wayland through AT-SPI. Supports `window`, `sheet`, `alert` and `menu`; GNOME adds shell surfaces. Virtual tray getters have limits; see the shell reference and check `status` |
 | Surfaces | `list-surfaces` | Lists an app's windows, sheets and open menus; shell reads use `snapshot --surface` |
 | Ref interaction | `click`, `right-click`, `type`, `set-value`, `clear`, `select`, `toggle`, `check`, `uncheck`, `expand`, `collapse`, `scroll-to` | Need a readable live identity and the required AT-SPI capability. See the shell reference for menu-ref resolution limits; X11 headed fallback also needs usable geometry and does not bypass identity checks |
-| Wheel scrolling | `scroll`, `mouse-wheel` | Physical wheel input; X11 and `--headed` only |
-| Pointer gestures | `double-click`, `triple-click`, `hover`, `drag` | `--headed`, X11 only. On Wayland the pointer cannot be aimed and these refuse with `ACTION_NOT_SUPPORTED` |
+| Wheel scrolling | `scroll`, `mouse-wheel` | Physical wheel input; `--headed` on X11 and Hyprland only |
+| Pointer gestures | `double-click`, `triple-click`, `hover`, `drag` | `--headed`, X11 and Hyprland. On GNOME Wayland the pointer cannot be aimed and these refuse with `ACTION_NOT_SUPPORTED` |
 | Focus | `focus` | Needs `--headed` for the focus permission. Calls AT-SPI `Component.GrabFocus` on a focusable node that is not yet `focused`, not the pointer, and verifies the state; a GTK4 app rejects the call, so `focus` ends `ACTION_FAILED` `grab_focus_rejected` there and `focus-window` is the way to focus its window |
-| Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11 and capability-detected Mutter Wayland sessions; pointer commands are X11 and `--headed`. See `references/display-servers-and-input.md` |
+| Keyboard and mouse | `press`, `mouse-click`, `mouse-move`, `mouse-wheel` | `press` and text keys work on X11, capability-detected Mutter Wayland sessions and Hyprland; pointer commands need `--headed` on X11 or Hyprland. See `references/display-servers-and-input.md` |
 | Held input | `key-down`, `key-up`, `mouse-down`, `mouse-up` | Fail closed on every platform: on Linux, `key-down` and `key-up` with `ACTION_NOT_SUPPORTED`; `mouse-down` and `mouse-up` with `POLICY_DENIED` headless and `ACTION_NOT_SUPPORTED` with `--headed` |
-| App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland; `focus-window` requires X11. Other window control and graceful close need an X11 client. See `references/windows-and-lifecycle.md` |
+| App and window | `launch`, `close-app`, `list-windows`, `list-apps`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore` | Launch and listing work on X11 and Wayland. On GNOME Wayland `focus-window` is refused and other window control and graceful close need an X11 client; Hyprland controls native and Xwayland windows through its dispatchers. See `references/windows-and-lifecycle.md` |
 | Displays | `list-displays` | Works |
-| Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. Wayland: portal consent, with display cropping. No selector returns the primary display. See `references/capture-and-clipboard.md` |
+| Capture | `screenshot` | X11: a window without permission; a display only under a non-compositing manager. GNOME Wayland: portal consent, with display cropping. Hyprland: a window or display through `ext-image-copy-capture`, no dialog. No selector returns the primary display. See `references/capture-and-clipboard.md` |
 | Clipboard | `clipboard-get`, `clipboard-set`, `clipboard-clear` | Works; text, images and file lists. Wayland needs `wl-clipboard` |
 | Wait | `wait` | Works for ms, `--element`, `--window`, `--text`, `--menu`, `--menu-closed`, `--event`. Menu waits share the menu-surface detector; `--notification` waits for a new notification on GNOME |
 | Notifications | `list-notifications`, `dismiss-notification`, `dismiss-all-notifications`, `notification-action` | GNOME Shell only; list headless, mutations `--headed` on X11, and `dismiss-notification` and `notification-action` also need `--expected-app` or `--expected-title`. Fields are read from the shell's widget layout, verified on GNOME Shell 46.0 only, and each mutation is proven by its effect. Wayland refuses the shell pointer before input. A notification owner that is not the shell or its own helper returns `PLATFORM_NOT_SUPPORTED`. See the shell reference |

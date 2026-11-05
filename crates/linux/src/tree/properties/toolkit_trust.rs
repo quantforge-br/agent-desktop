@@ -4,6 +4,7 @@ use zbus::Connection;
 use zbus::zvariant::OwnedValue;
 
 use super::node_read::call;
+use crate::system::hyprland::hypr_positions::window_relative;
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::process::web_family::WebFamily;
 use crate::system::{PROPERTIES_INTERFACE, REGISTRY_ROOT_PATH};
@@ -54,6 +55,7 @@ pub(crate) async fn read_toolkit(
             return Ok(ToolkitId {
                 name: None,
                 version: None,
+                window_relative: window_relative(root.pid()),
             });
         }
     }
@@ -65,6 +67,7 @@ pub(crate) async fn read_toolkit(
     Ok(ToolkitId {
         name: name?,
         version: version?,
+        window_relative: window_relative(root.pid()),
     })
 }
 
@@ -156,13 +159,23 @@ pub(crate) fn insert_length_unit(toolkit: &ToolkitId) -> LengthUnit {
 }
 
 /// Whether the toolkit reports screen positions that are global: GTK 3, Qt and
-/// Chromium. GTK 4 reports `[0, 0, w, h]` for nearly every node, and a toolkit
-/// that could not be read is not assumed to report anything.
+/// Chromium. GTK 4 reports `[0, 0, w, h]` for nearly every node, a toolkit
+/// that could not be read is not assumed to report anything, and no toolkit
+/// of a native Wayland client under Hyprland knows where its window is.
 pub(crate) fn reports_global_position(toolkit: &ToolkitId) -> bool {
-    matches!(
-        kind(toolkit),
-        ToolkitKind::Gtk3 | ToolkitKind::Qt | ToolkitKind::Chromium
-    )
+    !toolkit.window_relative
+        && matches!(
+            kind(toolkit),
+            ToolkitKind::Gtk3 | ToolkitKind::Qt | ToolkitKind::Chromium
+        )
+}
+
+/// Whether the toolkit's screen rectangles are relative to the toplevel
+/// window, popups included: GTK 3 drawing natively on Hyprland reports its
+/// popup nodes in window coordinates of the popup surface and in screen
+/// coordinates of the toplevel, so only the screen rectangle places them.
+pub(crate) fn screen_is_toplevel_relative(toolkit: &ToolkitId) -> bool {
+    toolkit.window_relative && kind(toolkit) == ToolkitKind::Gtk3
 }
 
 /// Whether window-coordinate descent is usable after sibling overlap has

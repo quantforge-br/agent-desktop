@@ -118,10 +118,11 @@ fn lease() -> InteractionLease {
         .expect("a lease")
 }
 
+/// The trait's default answer names the method as unsupported on the
+/// platform; a session with no display server is the adapter's own answer.
 fn not_the_default(error: &AdapterError) {
-    assert_ne!(
-        error.code,
-        ErrorCode::PlatformNotSupported,
+    assert!(
+        !error.message.ends_with("is not supported on this platform"),
         "the adapter answers for itself: {error:?}"
     );
 }

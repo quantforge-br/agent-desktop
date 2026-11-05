@@ -194,6 +194,7 @@ fn gtk(version: &str) -> ToolkitId {
     ToolkitId {
         name: Some("GTK".to_owned()),
         version: Some(version.to_owned()),
+        window_relative: false,
     }
 }
 
@@ -253,6 +254,7 @@ fn a_client_side_shadow_moves_the_pointer_rectangle_from_the_client_origin_insid
     placed.toolkit = ToolkitId {
         name: Some("GTK".to_owned()),
         version: Some("4.14.5".to_owned()),
+        window_relative: false,
     };
     placed.x11 = Some(WindowX11State {
         shadow: (61, 55, 0, 0),

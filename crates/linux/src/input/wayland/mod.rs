@@ -4,6 +4,7 @@ pub(crate) mod keysym_send;
 pub(crate) mod layout;
 pub(crate) mod pointer_send;
 pub(crate) mod remote_desktop;
+pub(crate) mod virtual_input;
 
 #[cfg(test)]
 mod fake_session;

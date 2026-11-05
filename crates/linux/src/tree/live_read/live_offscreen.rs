@@ -13,12 +13,15 @@ use crate::system::x11::window::window_x11_state::WindowX11State;
 use crate::system::x11::{self, DisplayReader, FrameFacts, MonitorReader, MonitorSource};
 use crate::system::{ACCESSIBLE_INTERFACE, REGISTRY_ROOT_PATH, SharedBus, shell, within};
 use crate::tree::placement::Placement;
+use crate::tree::placement::hypr_frame::hypr_window_state;
 use crate::tree::placement::offscreen::{OffscreenInput, offscreen};
 use crate::tree::properties::liveness::Liveness;
 use crate::tree::properties::node_read::{call, get_one, string_value};
-use crate::tree::properties::toolkit_trust::{read_toolkit, reports_global_position};
+use crate::tree::properties::toolkit_trust::{
+    read_toolkit, reports_global_position, screen_is_toplevel_relative,
+};
 use crate::tree::surfaces::twin_frames::read_twins;
-use crate::tree::surfaces::window_extents::read_window_extents;
+use crate::tree::surfaces::window_extents::{read_placing_extents, read_window_extents};
 use crate::tree::surfaces::window_tie::WindowTie;
 use crate::tree::vocabulary::state_bits::{ICONIFIED, StateBits};
 use crate::tree::{AtspiElement, Extents};
@@ -128,17 +131,24 @@ pub(crate) fn placement(bus: &SharedBus, element: &AtspiElement, deadline: Deadl
 
 fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placement {
     let toolkit = toolkit_of(bus, element, deadline);
+    let toplevel_relative = screen_is_toplevel_relative(&toolkit);
     let mut placed = Placement {
-        node: read_window_extents(bus, element, deadline),
+        node: read_placing_extents(bus, element, &toolkit, deadline),
         container: element
             .scroll_container()
-            .and_then(|container| read_window_extents(bus, container, deadline)),
+            .and_then(|container| read_placing_extents(bus, container, &toolkit, deadline)),
         wayland_unplaced: !reports_global_position(&toolkit)
             && session_server() == DisplayServer::Wayland,
         toolkit,
         ..Placement::default()
     };
-    let (Some(frame), Ok(connection)) = (element.frame(), bus.get(deadline)) else {
+    let owner = if toplevel_relative && element.is_menu_target() {
+        element.menu_owner()
+    } else {
+        None
+    };
+    let (Some(frame), Ok(connection)) = (owner.as_ref().or(element.frame()), bus.get(deadline))
+    else {
         return placed;
     };
     placed.frame = read_window_extents(bus, frame, deadline);
@@ -150,6 +160,7 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
     };
     placed.frame_iconified = read.iconified;
     if element.is_menu_target()
+        && !toplevel_relative
         && matches!(
             read.role,
             Some(
@@ -211,6 +222,9 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
                 return None;
             }
             let facts = facts()?;
+            if let Some(state) = hypr_window_state(facts.pid, &facts.title, deadline) {
+                return Some(state);
+            }
             let found =
                 frame_window_state(&DisplayReader, deadline, &facts, || twins(&facts.title));
             window.set(found);

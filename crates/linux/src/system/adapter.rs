@@ -5,12 +5,13 @@ use agent_desktop_core::{
     ActionResult, AdapterError, AdapterSession, AppInfo, Deadline, DismissAllNotificationsRequest,
     DismissNotificationRequest, DisplayInfo, ImageBuffer, InteractionLease, InteractionPolicy,
     KeyCombo, NotificationActionRequest, NotificationFilter, NotificationInfo, OperationReport,
-    PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity, SignalBaseline,
-    SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
+    OperationTarget, PermissionReport, ProcessIdentity, ScreenshotTarget, SessionAffinity,
+    SignalBaseline, SignalFilter, SnapshotSurface, SystemOps, WindowInfo, WindowOp,
 };
 
 use crate::adapter::LinuxAdapter;
 use crate::notifications;
+use crate::system::hyprland::HyprInstance;
 use crate::system::{
     close,
     focus::key_dispatch,
@@ -21,6 +22,7 @@ use crate::system::{
     process::process_state,
     shell,
     signal::signal_capture,
+    window::hypr_window::{hypr_window_op, hypr_world::LiveHypr},
     window::window_op,
 };
 
@@ -72,7 +74,7 @@ impl SystemOps for LinuxAdapter {
     }
 
     fn focus_window(&self, win: &WindowInfo, lease: &InteractionLease) -> Result<(), AdapterError> {
-        crate::system::focus::focus_window::focus_window(self.bus(), win, lease)
+        crate::system::focus::focus_session_window(self.bus(), win, lease)
     }
 
     fn close_app(
@@ -116,7 +118,17 @@ impl SystemOps for LinuxAdapter {
         op: WindowOp,
         lease: &InteractionLease,
     ) -> Result<OperationReport, AdapterError> {
-        window_op::window_op(self.bus(), win, op, lease)
+        match HyprInstance::detect() {
+            Some(instance) => {
+                OperationTarget::for_window(win)?;
+                let world = LiveHypr {
+                    instance,
+                    deadline: lease.deadline(),
+                };
+                hypr_window_op::window_op(&world, win, &op)
+            }
+            None => window_op::window_op(self.bus(), win, op, lease),
+        }
     }
 
     fn press_key_for_app(

@@ -204,6 +204,7 @@ impl Surface for LiveSurface<'_> {
         let Some(opener) = opener_of(kind) else {
             return Ok(());
         };
+        super::pointer_gate::require_pointer_capability(self.lease.deadline())?;
         let (_, located) = self.located(opener, self.lease.deadline())?;
         click_shell(
             self.bus,

@@ -10,6 +10,7 @@ use super::verify::{holds, unconfirmed_read};
 use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
 use crate::system::shell::light::same_object;
+use crate::system::shell::pointer_gate::require_pointer_capability;
 
 type Outcome = (Vec<NotificationInfo>, Vec<String>);
 
@@ -18,6 +19,7 @@ pub(crate) fn dismiss_all(
     request: DismissAllNotificationsRequest<'_>,
     lease: &InteractionLease,
 ) -> Result<Outcome, AdapterError> {
+    require_pointer_capability(lease.deadline())?;
     dismiss_all_in(&LiveWorld::new(bus), request, lease)
 }
 

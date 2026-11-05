@@ -23,6 +23,7 @@ fn gtk4() -> ToolkitId {
     ToolkitId {
         name: Some("GTK".to_owned()),
         version: Some("4.14.5".to_owned()),
+        window_relative: false,
     }
 }
 

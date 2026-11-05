@@ -3,6 +3,7 @@ use agent_desktop_core::BoundsSpace;
 use agent_desktop_core::{AdapterError, Deadline, ErrorCode};
 
 use super::frame_geometry::{pointer_bounds, popup_origin};
+use super::hypr_frame::hypr_frame;
 use crate::system::process::toolkit_id::ToolkitId;
 use crate::system::window::window_position::{origin_of_client, rect_of_client};
 use crate::system::x11::map::ClientMatch;
@@ -10,12 +11,17 @@ use crate::system::x11::stacking::stacking_source::StackingSource;
 use crate::system::x11::twin_tie::client_among_twins;
 use crate::system::x11::{DisplayReader, FrameFacts, X11State};
 use crate::system::{REGISTRY_ROOT_PATH, SharedBus, shell, within};
+use crate::tree::capabilities::action_names::unsupported_entry_activation;
 use crate::tree::element::bounded::collect_bounded;
 use crate::tree::properties::node_read::read_node_for;
 use crate::tree::properties::read_purpose::ReadPurpose;
-use crate::tree::properties::toolkit_trust::{read_toolkit, reports_global_position};
+use crate::tree::properties::toolkit_trust::{
+    read_toolkit, reports_global_position, screen_is_toplevel_relative,
+};
 use crate::tree::surfaces::twin_frames::read_twins;
-use crate::tree::surfaces::window_extents::read_window_extents_async;
+use crate::tree::surfaces::window_extents::{
+    read_placing_extents_async, read_window_extents_async,
+};
 use crate::tree::{AtspiElement, Extents, Field, ObservedRead, Walk, WalkedNode};
 
 const IN_FLIGHT: usize = 64;
@@ -102,6 +108,17 @@ fn place_read_bounds(
         );
 }
 
+/// Drops an entry's `activate` verb that the toolkit ignores, so the walk
+/// advertises no click the live element and the dispatcher would refuse.
+fn drop_inert_activation(read: &mut ObservedRead, toolkit: &ToolkitId) {
+    let role = read.node.traits.role.present().copied();
+    if let Field::Present(names) = &mut read.node.actions
+        && unsupported_entry_activation(role, names, toolkit)
+    {
+        names.retain(|name| !name.eq_ignore_ascii_case("activate"));
+    }
+}
+
 fn placed_elements(root: &mut WalkedNode<ObservedRead>) -> Vec<AtspiElement> {
     let mut elements = Vec::new();
     for_each_read(root, &mut |read| {
@@ -116,6 +133,20 @@ fn placed_elements(root: &mut WalkedNode<ObservedRead>) -> Vec<AtspiElement> {
         }
     });
     elements
+}
+
+/// The toolkit's own rectangles of the placed nodes, in walk order, for a
+/// toolkit whose screen rectangles are already relative to the toplevel.
+fn screen_rectangles(root: &mut WalkedNode<ObservedRead>) -> Vec<Option<Extents>> {
+    let mut rectangles = Vec::new();
+    for_each_read(root, &mut |read| {
+        if let Some(extents) = read.node.extents.present().copied()
+            && !is_sentinel(extents)
+        {
+            rectangles.push(Some(extents));
+        }
+    });
+    rectangles
 }
 
 async fn window_rectangles(
@@ -156,7 +187,7 @@ async fn frame_facts(
 }
 
 /// The place of the frame's nodes: the origin and the drawn rectangle of its
-/// X11 client, or the origin of its popup. The title is read on the bus; the
+/// Hyprland or X11 client, or the origin of its popup. The title is read on the bus; the
 /// display-server read then runs here, outside any polled future, under the
 /// caller's deadline.
 fn place_of(
@@ -166,7 +197,12 @@ fn place_of(
     toolkit: &ToolkitId,
     deadline: Deadline,
 ) -> Result<Option<FramePlace>, AdapterError> {
-    let Some(frame) = element.frame() else {
+    let owner = if element.is_menu_target() && screen_is_toplevel_relative(toolkit) {
+        element.menu_owner()
+    } else {
+        None
+    };
+    let Some(frame) = owner.as_ref().or(element.frame()) else {
         return Ok(None);
     };
     let Some(node) = geometry_or_unknown(within(deadline, frame_facts(connection, frame)))? else {
@@ -204,6 +240,12 @@ fn place_of(
         extents: screen,
         global_position: false,
     };
+    if let Some(drawn) = hypr_frame(facts.pid, &facts.title, deadline) {
+        return Ok(Some(FramePlace {
+            origin: (drawn.x, drawn.y),
+            drawn: owner.is_none().then_some(drawn),
+        }));
+    }
     let X11State::Ready { active, clients } = DisplayReader.clients_within(deadline) else {
         return Ok(None);
     };
@@ -251,15 +293,22 @@ pub(crate) fn place_nodes(
         deadline,
         read_toolkit(connection.inner(), &app_root),
     ))?;
+    for_each_read(&mut walk.root, &mut |read| {
+        drop_inert_activation(read, &toolkit)
+    });
     if reports_global_position(&toolkit) {
         return Ok(());
     }
     let place = place_of(bus, connection.inner(), &element, &toolkit, deadline)?;
-    let elements = placed_elements(&mut walk.root);
-    let windows = geometry_or_unknown(within(
-        deadline,
-        window_rectangles(connection.inner(), &elements),
-    ))?;
+    let windows = if screen_is_toplevel_relative(&toolkit) {
+        screen_rectangles(&mut walk.root)
+    } else {
+        let elements = placed_elements(&mut walk.root);
+        geometry_or_unknown(within(
+            deadline,
+            window_rectangles(connection.inner(), &elements),
+        ))?
+    };
     apply(&mut walk.root, &toolkit, place, &windows);
     Ok(())
 }
@@ -304,7 +353,7 @@ pub(crate) fn place_single(
     let place = place_of(bus, connection.inner(), &element, &toolkit, deadline)?;
     let window = geometry_or_unknown(within(
         deadline,
-        read_window_extents_async(connection.inner(), &element),
+        read_placing_extents_async(connection.inner(), &element, &toolkit),
     ))?;
     place_read_bounds(read, &toolkit, place, window);
     Ok(())

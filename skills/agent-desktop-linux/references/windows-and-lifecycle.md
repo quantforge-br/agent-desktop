@@ -2,7 +2,11 @@
 
 Window control uses EWMH client messages on the X11 display: an X11 session's
 display, or the Xwayland display of a Wayland session. `wmctrl` and `xdotool`
-are not used.
+are not used. Under Hyprland the Wayland limits below do not apply: listing,
+focus, move, resize, minimize, maximize, restore, graceful close and
+`launch --activate` go through Hyprland's request socket for native and
+Xwayland windows alike. See `references/display-servers-and-input.md`,
+Hyprland.
 
 ## Naming an app
 

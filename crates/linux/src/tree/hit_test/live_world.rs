@@ -2,6 +2,7 @@ use agent_desktop_core::{AdapterError, Deadline};
 use futures_util::future::join4;
 use zbus::Connection;
 
+use super::hypr_windowing::hypr_windowing;
 use super::{Facts, HitWorld, Windowing};
 use crate::system::shell::container::MENU;
 use crate::system::x11::map::ClientMatch;
@@ -157,6 +158,11 @@ impl HitWorld for LiveWorld<'_> {
     }
 
     fn windowing(&mut self, frame: &FrameFacts) -> Option<Windowing> {
+        if !self.popup
+            && let Some(windowing) = hypr_windowing(frame, self.nodes.deadline)
+        {
+            return Some(windowing);
+        }
         let state = DisplayReader.clients_within(self.nodes.deadline);
         let X11State::Ready { active, clients } = state else {
             return None;

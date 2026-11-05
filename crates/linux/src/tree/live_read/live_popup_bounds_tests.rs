@@ -68,6 +68,7 @@ fn gtk4() -> crate::system::process::toolkit_id::ToolkitId {
     crate::system::process::toolkit_id::ToolkitId {
         name: Some("GTK".to_owned()),
         version: Some("4.14.5".to_owned()),
+        window_relative: false,
     }
 }
 

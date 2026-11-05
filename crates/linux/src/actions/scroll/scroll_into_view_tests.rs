@@ -109,6 +109,7 @@ impl ScrollPort for Fake {
         ToolkitId {
             name: Some(self.toolkit.to_owned()),
             version: None,
+            window_relative: false,
         }
     }
 

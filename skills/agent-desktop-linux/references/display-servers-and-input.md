@@ -14,17 +14,17 @@ A stale `WAYLAND_DISPLAY` from another session falls through to a working
 
 ## X11 versus Wayland
 
-| Capability | X11 | Wayland (GNOME) |
-|------------|-----|-----------------|
-| Observation, semantic ref actions | AT-SPI, no tool | AT-SPI, no tool |
-| Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms |
-| App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` |
-| Window ops | EWMH on the X11 display | Xwayland clients only; native windows and un-minimize refused |
-| `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included |
-| Headless scoped `press` | Live display and frame focus guards, no activation | Live frame focus guard, no activation |
-| `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` picks a monitor |
-| Clipboard | Native selection owner | `wl-clipboard` |
-| GNOME Shell ref click, popup opener | `--headed`, receiver proof from the shell's own tree | Ref click refused with `wayland_session`, popup opener refused as unproven; see shell reference |
+| Capability | X11 | Wayland (GNOME) | Wayland (Hyprland) |
+|------------|-----|-----------------|--------------------|
+| Observation, semantic ref actions | AT-SPI, no tool | AT-SPI, no tool | AT-SPI, no tool |
+| Keys, `press`, text keys | XTEST in process, live keymap | Mutter RemoteDesktop, keysyms | Virtual keyboard, any keysym |
+| App pointer: `hover`, `drag`, `mouse-*`, physical click, wheel | XTEST, `--headed` | None: `ACTION_NOT_SUPPORTED` with `physical_delivery_started: false` | Virtual pointer, `--headed` |
+| Window ops | EWMH on the X11 display | Xwayland clients only; native windows and un-minimize refused | Hyprland dispatchers, native and Xwayland windows |
+| `focus-window`, headed scoped `press` | EWMH activation, then keys for `press` | Refused with `ACTION_NOT_SUPPORTED`, cause `wayland_session`, Xwayland clients included | Hyprland focus, then keys for `press` |
+| Headless scoped `press` | Live display and frame focus guards, no activation | Live frame focus guard, no activation | Live frame focus guard, no activation |
+| `screenshot` | Window or display; primary display by default | Portal consent; primary display by default, `--screen` picks a monitor | `ext-image-copy-capture`, no portal dialog |
+| Clipboard | Native selection owner | `wl-clipboard` | `wl-clipboard` |
+| GNOME Shell ref click, popup opener | `--headed`, receiver proof from the shell's own tree | Ref click refused with `wayland_session`, popup opener refused as unproven; see shell reference | No GNOME Shell; see shell reference |
 
 X11 needs no tool beyond the binary and its clipboard helper. `xdotool`,
 `ydotool`, `xclip` and `wmctrl` are not used. `wl-clipboard` is the one outside
@@ -204,6 +204,51 @@ its own. Ending a session releases its held keys.
 - **No active window.** On a Wayland session with no seat keyboard no window
   carries `ACTIVE`, so `focus-changed` waits time out.
 
+## Hyprland
+
+The adapter uses Hyprland when `HYPRLAND_INSTANCE_SIGNATURE` names a running
+instance whose lock file serves this session's `WAYLAND_DISPLAY`. A signature
+inherited from another session is ignored, and the session is treated as
+GNOME-style Wayland. Hyprland's request socket supplies the window list, the
+monitors and every window operation; the GNOME Wayland limits above do not
+apply.
+
+- **Windows.** `list-windows` reads Hyprland's clients, native Wayland and
+  Xwayland alike. `focus-window`, `move-window`, `resize-window`,
+  `minimize`, `maximize`, `restore` and `close-app` go through Hyprland's
+  dispatchers and answer after the client list shows the effect. Hyprland has
+  no minimized state: `minimize` parks the window on the special workspace
+  `special:minimized`, which `list-windows` reports as `minimized`, and
+  `restore` or `focus-window` brings it back. A tiled window becomes floating
+  before a move or resize, because only floating windows move freely.
+- **Keys.** `press`, `--headed type` and key steps use a
+  `zwp_virtual_keyboard_v1` device whose keymap is made from the keys being
+  sent, so accented and non-Latin characters type without
+  `character_outside_layout`. Keys a standard keyboard has keep that
+  keyboard's keycode: GTK 3 matches its shortcuts and editing keys (Home,
+  BackSpace, `ctrl+a`) by keycode against the keymap it read first. A command
+  starts with a lone Shift tap, as on GNOME Wayland.
+- **Pointer.** `--headed` pointer commands and physical ref clicks use a
+  `zwlr_virtual_pointer_v1` device in absolute layout coordinates. A point no
+  monitor shows is `INVALID_ARGS`, `not_delivered`. A ref's position is
+  Hyprland's window origin plus the toolkit's window-relative rectangle;
+  Xwayland clients report screen positions themselves. The receiver proof
+  reads Hyprland's stacking, with shell layers drawn above windows.
+- **Popups.** A native Wayland Qt combo box opens its list only for real
+  pointer input. A headless `click` or `expand` on a collapsed one is
+  `POLICY_DENIED` with `details.kind: pointer_required`,
+  `cause: native_popup_requires_input` and `physical_delivery_started: false`,
+  and a headless `select` of a Qt combo choice is `POLICY_DENIED` with
+  `kind: pointer_required`; run either again with `--headed`. A headless
+  `select` whose option index cannot be proved from the tree is refused the
+  same way with `cause: selection_index_unproven`. GTK 3 places popup menu
+  items relative to the window that opened them, and GTK 4.24 advertises a
+  menu button's popover on its inner toggle; both are read without a pointer,
+  so `--surface menu` snapshots and item clicks work headless.
+- **Capture.** `screenshot` copies a display by connector name or a window by
+  its Hyprland stable id through `ext-image-copy-capture-v1`. There is no
+  consent dialog, and the pointer is not painted.
+
 ## Wheel and scroll
 
 ```bash
@@ -219,8 +264,10 @@ agent-desktop --headed mouse-wheel --x 640 --y 400 --dy 5
 - The result carries `dy`, `dx`, `target`, `steps` and `disposition`, with no
   `scrolled` success flag. Wheel delivery is `delivered_unverified`: read the
   content afterwards.
-- `scroll @ref --headed` sends wheel clicks at the centre of the target's
-  bounds, only for a node with the `Scroll` capability. A wheel click is
+- `scroll @ref --headed` sends wheel clicks at the centre of the part of the
+  target's bounds that a display shows, only for a node with the `Scroll`
+  capability. Nodes carry it on X11 and on Hyprland, where the virtual pointer
+  is the wheel; on other Wayland compositors no node does. A wheel click is
   page-size dependent (about two rows on GTK, exactly three items on Qt), so
   `--amount` counts clicks, not rows. A `scrollarea` without a ref cannot take
   `scroll @ref`; use `scroll-to` on a child or `mouse-wheel` at coordinates.

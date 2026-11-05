@@ -1,4 +1,29 @@
+use agent_desktop_core::{AdapterError, InteractionLease, WindowInfo};
+
+use super::SharedBus;
+use super::hyprland::HyprInstance;
+use super::window::hypr_window::{hypr_focus, hypr_world::LiveHypr};
 use super::x11::X11Evidence;
+
+/// Brings `win` forward the way the session allows: through Hyprland's
+/// request socket when a Hyprland instance serves the session, and through
+/// the X11 and GNOME paths otherwise.
+pub(crate) fn focus_session_window(
+    bus: &SharedBus,
+    win: &WindowInfo,
+    lease: &InteractionLease,
+) -> Result<(), AdapterError> {
+    match HyprInstance::detect() {
+        Some(instance) => hypr_focus::focus_window(
+            &LiveHypr {
+                instance,
+                deadline: lease.deadline(),
+            },
+            win,
+        ),
+        None => focus_window::focus_window(bus, win, lease),
+    }
+}
 
 /// The one focused window, or none. `candidates` are the indices of the
 /// listed windows that carry the `ACTIVE` state. A toolkit can set that state

@@ -22,6 +22,7 @@ pub(crate) mod hit_descent;
 pub(crate) mod hit_guard;
 pub(crate) mod hit_occlusion;
 pub(crate) mod hit_verdict;
+pub(crate) mod hypr_windowing;
 mod live_world;
 
 /// What the target's window and the target say about where they are.

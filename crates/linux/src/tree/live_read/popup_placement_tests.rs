@@ -26,6 +26,7 @@ fn menu_regression_gtk3_popup_visibility_uses_the_native_popup() {
         toolkit: crate::system::process::toolkit_id::ToolkitId {
             name: Some("GTK".to_owned()),
             version: Some("3.24.41".to_owned()),
+            window_relative: false,
         },
         ..Placement::default()
     };

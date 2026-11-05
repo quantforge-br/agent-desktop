@@ -1,8 +1,9 @@
 # Capture and Clipboard on Linux
 
-X11 needs no permission and no outside tool. Wayland asks a person once for
-`screenshot` and needs `wl-clipboard`. `agent-desktop permissions` shows the
-case: `screen_recording` is `not_required` on X11 and `unknown` on Wayland.
+X11 needs no permission and no outside tool. GNOME Wayland asks a person once
+for `screenshot`; Hyprland does not. Wayland needs `wl-clipboard`.
+`agent-desktop permissions` shows the case: `screen_recording` is
+`not_required` on X11 and Hyprland and `unknown` on GNOME Wayland.
 `screenshot` has no timeout flag.
 
 ## `screenshot` on X11
@@ -44,9 +45,22 @@ agent-desktop screenshot /tmp/everything.png
 - Resource, connection and visibility failures keep their own errors. Only a
   window whose paint cannot be proven gets the `covered` advice.
 
-## `screenshot` on Wayland
+## `screenshot` on Hyprland
 
-Wayland has no window position and no per-window capture. The portal's
+```bash
+agent-desktop screenshot --window-id "$WINDOW_ID" /tmp/window.png
+agent-desktop screenshot --screen 1 /tmp/screen1.png
+```
+
+Hyprland copies frames through `ext-image-copy-capture-v1`, with no portal and
+no dialog. A window target (`--app`, `--window-id`) is captured from its own
+surface by its Hyprland stable id, covered or not; a display target is copied
+by connector name at its own scale. The pointer is not painted. The portal
+notes below do not apply.
+
+## `screenshot` on GNOME Wayland
+
+GNOME Wayland has no window position and no per-window capture. The portal's
 `Screenshot` captures the desktop; the CLI returns the primary display by
 default, cropping the image on a multi-monitor desktop. `--screen N` selects
 another monitor.

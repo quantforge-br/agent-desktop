@@ -11,6 +11,7 @@ use crate::input::delivery::{Delivery, Gate};
 use crate::input::keyboard::keymap::Keymap;
 use crate::input::keyboard::keysym_step::KeysymStep;
 use crate::input::plan::Plan;
+use crate::input::wayland::virtual_input::virtual_send;
 use crate::system::SharedBus;
 use crate::tree::AtspiElement;
 
@@ -63,6 +64,16 @@ pub(crate) trait PhysicalWorld {
     ) -> Result<Delivery, AdapterError>;
     fn pointer_refusal(&self, what: &'static str) -> AdapterError;
     fn pause(&self, duration: Duration);
+    /// The screen rectangles of the displays, which an aim without a proven
+    /// point keeps the gesture on. None known leaves the aim unclipped.
+    fn displays(&self, _deadline: Deadline) -> Vec<Rect> {
+        Vec::new()
+    }
+    /// Whether input is synthesized through the compositor's virtual pointer
+    /// and keyboard, which Hyprland lets a client create.
+    fn virtual_input(&self) -> bool {
+        false
+    }
 }
 
 pub(crate) fn validate_pointer_receiver(
@@ -135,6 +146,7 @@ impl PhysicalWorld for LiveWorld<'_> {
     fn keymap(&self, _deadline: Deadline) -> Result<Keymap, AdapterError> {
         match self.backend()? {
             Backend::X11(display) => crate::input::x11::session::live_keymap(&display, self.lease),
+            Backend::Wayland if self.virtual_input() => Ok(virtual_send::planner_keymap()),
             Backend::Wayland => Err(self.pointer_refusal("keymap")),
         }
     }
@@ -192,5 +204,15 @@ impl PhysicalWorld for LiveWorld<'_> {
 
     fn pause(&self, duration: Duration) {
         std::thread::sleep(duration);
+    }
+
+    fn virtual_input(&self) -> bool {
+        virtual_send::compositor().is_some()
+    }
+
+    fn displays(&self, deadline: Deadline) -> Vec<Rect> {
+        crate::system::list_displays(deadline)
+            .map(|displays| displays.into_iter().map(|display| display.bounds).collect())
+            .unwrap_or_default()
     }
 }

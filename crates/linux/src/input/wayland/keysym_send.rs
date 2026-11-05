@@ -177,8 +177,11 @@ pub(crate) fn send_chunks(
     gate: Gate<'_>,
     deadline: Deadline,
 ) -> Result<Delivery, AdapterError> {
-    for chunk in chunks {
-        refuse_unreachable(chunk)?;
+    let virtual_keyboard = super::virtual_input::virtual_send::compositor().is_some();
+    if !virtual_keyboard {
+        for chunk in chunks {
+            refuse_unreachable(chunk)?;
+        }
     }
     let chunks: Vec<&[KeysymStep]> = chunks
         .iter()
@@ -189,6 +192,9 @@ pub(crate) fn send_chunks(
         return Ok(Delivery {
             delivered_events: 0,
         });
+    }
+    if virtual_keyboard {
+        return super::virtual_input::virtual_send::send_keysyms(&chunks, gate, deadline);
     }
     let kept = kept_session::take();
     let reused = kept.is_some();

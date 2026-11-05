@@ -7,12 +7,14 @@ use super::session::{Session, require_headed};
 use super::target::{Wanted, locate, reconfirm};
 use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
+use crate::system::shell::pointer_gate::require_pointer_capability;
 
 pub(crate) fn dismiss(
     bus: &SharedBus,
     request: DismissNotificationRequest<'_>,
     lease: &InteractionLease,
 ) -> Result<NotificationInfo, AdapterError> {
+    require_pointer_capability(lease.deadline())?;
     dismiss_in(&LiveWorld::new(bus), request, lease)
 }
 

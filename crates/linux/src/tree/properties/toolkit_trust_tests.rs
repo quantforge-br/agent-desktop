@@ -55,6 +55,7 @@ fn toolkit_policy_matrix() {
         let toolkit = ToolkitId {
             name: name.map(str::to_owned),
             version: version.map(str::to_owned),
+            window_relative: false,
         };
         let actual = [
             reports_global_position(&toolkit),

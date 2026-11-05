@@ -5,6 +5,7 @@ use crate::system::display::display_cause::Cause;
 use crate::system::display::display_mutter::LogicalMonitor;
 use crate::system::display::display_server::{DisplayServer, session_server};
 use crate::system::display::display_unavailable::Unavailable;
+use crate::system::hyprland::HyprInstance;
 
 fn wayland_missing() -> AdapterError {
     AdapterError::new(
@@ -13,7 +14,8 @@ fn wayland_missing() -> AdapterError {
     )
     .with_suggestion(
         "Run under GNOME, whose compositor answers the Mutter DisplayConfig \
-         interface; no other Wayland display source is measured",
+         interface, or under Hyprland, whose IPC lists its monitors; no other \
+         Wayland display source is measured",
     )
 }
 
@@ -153,9 +155,13 @@ pub(crate) fn decide_x11(
     decide(server, Some(monitors?), mutter.unwrap_or(None))
 }
 
-/// The displays of a Wayland session as Mutter lists them, with no look at the
-/// environment: a caller that already chose the Wayland route asks here.
+/// The displays of a Wayland session as its compositor lists them: Hyprland
+/// through its IPC, otherwise Mutter. A caller that already chose the
+/// Wayland route asks here.
 pub(crate) fn list_wayland_displays(deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
+    if let Some(instance) = HyprInstance::detect() {
+        return display_hyprland::hyprland_displays(&instance, deadline);
+    }
     decide(
         DisplayServer::Wayland,
         None,
@@ -165,8 +171,8 @@ pub(crate) fn list_wayland_displays(deadline: Deadline) -> Result<Vec<DisplayInf
 
 /// Lists the session's displays. On X11 the monitor list comes from RandR
 /// and Mutter's `DisplayConfig` supplies each monitor's scale where it
-/// answers; on Wayland Mutter is the only measured source and a session
-/// without it is `PLATFORM_NOT_SUPPORTED`.
+/// answers; on Wayland the compositor is the only measured source, and a
+/// compositor that is neither Hyprland nor Mutter is `PLATFORM_NOT_SUPPORTED`.
 pub(crate) fn list_displays(deadline: Deadline) -> Result<Vec<DisplayInfo>, AdapterError> {
     match session_server() {
         DisplayServer::Wayland => list_wayland_displays(deadline),
@@ -192,6 +198,7 @@ mod tests;
 pub(crate) mod display_cause;
 pub(crate) mod display_env;
 pub(super) mod display_error;
+pub(super) mod display_hyprland;
 #[cfg(test)]
 pub(super) mod display_live_tests;
 pub(super) mod display_mutter;

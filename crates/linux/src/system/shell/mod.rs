@@ -18,6 +18,7 @@ pub(crate) mod kinds;
 pub(crate) mod light;
 pub(crate) mod live_state;
 pub(crate) mod open;
+pub(crate) mod pointer_gate;
 mod registry;
 pub(crate) mod search;
 mod tray_tree;

@@ -259,6 +259,7 @@ fn snapshot_and_live_agree_when_a_shown_node_is_beyond_every_display() {
             toolkit: crate::system::process::toolkit_id::ToolkitId {
                 name: Some("GTK".into()),
                 version: Some("3.24".into()),
+                window_relative: false,
             },
             ..Placement::default()
         };

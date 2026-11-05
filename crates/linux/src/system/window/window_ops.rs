@@ -14,6 +14,7 @@ use crate::system::registry::registry_app::RegistryApp;
 use crate::system::registry::registry_frames::RootRead;
 use crate::system::registry::{Registry, read_registry_for, read_registry_query};
 use crate::system::signal::signal_inventory::{Pass, read_selected, run_pass_with};
+use crate::system::window::hypr_window::hypr_listing::HyprView;
 use crate::system::x11::stacking::client_stack;
 use crate::system::x11::window::desktops::{self, Desktops};
 use crate::system::x11::{self, DisplayReader, X11Source, X11State};
@@ -30,11 +31,21 @@ pub(crate) fn windows_of(
 
 /// Places the windows of a pass, trims the client-side shadows the toolkit
 /// drew, marks the minimized ones, those on another desktop and the focused
-/// one, and returns the index of the focused window.
-fn finish_listing(pass: &mut Pass, state: &X11State, desktops: Option<&Desktops>) -> Option<usize> {
+/// one, and returns the index of the focused window. Under Hyprland the
+/// compositor's client list answers place, focus and visibility.
+fn finish_listing(
+    pass: &mut Pass,
+    state: &X11State,
+    desktops: Option<&Desktops>,
+    deadline: Deadline,
+) -> Option<usize> {
     place_windows(&mut pass.windows, state, desktops);
     if let Some(index) = pass.focused {
         pass.windows[index].info.state.is_focused = true;
+    }
+    if let Some(view) = HyprView::of_session(deadline) {
+        view.annotate(&mut pass.windows);
+        pass.focused = HyprView::focused(&pass.windows);
     }
     pass.focused
 }
@@ -94,6 +105,7 @@ pub(crate) fn list_windows(
         &mut pass,
         &state,
         desktops.finish(deadline).flatten().as_ref(),
+        deadline,
     );
     let mut windows = pass.windows;
     if filter.focused_only {
@@ -123,6 +135,7 @@ pub(crate) fn windows_of_process(
         &mut pass,
         &state,
         desktops.finish(deadline).flatten().as_ref(),
+        deadline,
     );
     Ok(pass.windows.into_iter().map(|window| window.info).collect())
 }

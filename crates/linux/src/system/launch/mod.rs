@@ -15,7 +15,7 @@ use self::launch_spawn::{before_spawn, spawn, validate};
 use self::launch_target::{Plan, resolve};
 use super::SharedBus;
 use crate::system::app::app_alias::current_index;
-use crate::system::focus::focus_window::focus_window;
+use crate::system::focus::focus_session_window;
 use crate::system::process::liveness::{Liveness, liveness};
 use crate::system::process::process_facts;
 use crate::system::process::running_app::Running;
@@ -239,7 +239,7 @@ impl Launch<'_> {
         LaunchResult {
             renderer: chromium_renderer(self.bus, owner.pid, self.deadline),
             ..conclude(owner, window, self.options, created, |window| {
-                focus_window(self.bus, window, self.lease)?;
+                focus_session_window(self.bus, window, self.lease)?;
                 Ok(windows_of_process(self.bus, owner.pid, self.deadline)
                     .ok()
                     .and_then(|windows| same_window(windows, &window.id)))

@@ -15,6 +15,7 @@ use super::verify::{REMOVAL_SETTLE, evidence, holds, pressed_without_effect, set
 use super::world::{LiveWorld, ShellWorld};
 use crate::system::SharedBus;
 use crate::system::shell::light::Light;
+use crate::system::shell::pointer_gate::require_pointer_capability;
 
 const EXPAND_POLL: Duration = Duration::from_millis(100);
 
@@ -23,6 +24,7 @@ pub(crate) fn action(
     request: NotificationActionRequest<'_>,
     lease: &InteractionLease,
 ) -> Result<ActionResult, AdapterError> {
+    require_pointer_capability(lease.deadline())?;
     action_in(&LiveWorld::new(bus), &BusSignals, request, lease)
 }
 

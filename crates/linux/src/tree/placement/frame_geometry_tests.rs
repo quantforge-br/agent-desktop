@@ -13,6 +13,7 @@ fn toolkit(name: &str, version: &str) -> ToolkitId {
     ToolkitId {
         name: Some(name.to_owned()),
         version: Some(version.to_owned()),
+        window_relative: false,
     }
 }
 

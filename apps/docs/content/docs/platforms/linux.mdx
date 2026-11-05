@@ -4,13 +4,13 @@ navTitle: Linux
 description: Requirements, the accessibility bus, per-command capabilities on X11 and Wayland, app naming, surfaces, and troubleshooting for agent-desktop on Linux.
 ---
 
-agent-desktop reads Linux apps through AT-SPI over D-Bus. The loop, refs, JSON envelope, sessions, and traces match every platform, so this page covers only what differs on Linux. GNOME is the measured desktop; X11 and Wayland sessions both work and differ in input, capture, and window control. The examples on this page ran on an X11 session (Xvfb with the openbox window manager, no GNOME Shell), so shell surfaces and notifications were not exercised.
+agent-desktop reads Linux apps through AT-SPI over D-Bus. The loop, refs, JSON envelope, sessions, and traces match every platform, so this page covers only what differs on Linux. GNOME is the measured desktop, and Hyprland 0.57 is measured too; X11 and Wayland sessions both work and differ in input, capture, and window control. The examples on this page ran on an X11 session (Xvfb with the openbox window manager, no GNOME Shell), so shell surfaces and notifications were not exercised.
 
 ## Requirements
 
 - Ubuntu 24.04 or later on x86_64 or aarch64, with a glibc 2.35 floor. Other distributions need an `at-spi2-core` bridge with fix (commit `dc0dc33`); Ubuntu 22.04's bridge aborts on `Action.GetActions`.
 - A graphical session of the signed-in user, a running AT-SPI bus (`at-spi2-core`), and a window manager. Run agent-desktop from a shell inside that session: the session bus, display, and runtime directory come from its environment. A TTY login, an SSH shell without those variables, a container without a bus, or another user's session sees no apps.
-- X11 keys need XTEST, and Wayland keys need GNOME Mutter RemoteDesktop. The Wayland clipboard needs `wl-clipboard`.
+- X11 keys need XTEST. Wayland keys need GNOME Mutter RemoteDesktop, or Hyprland's virtual keyboard and pointer. The Wayland clipboard needs `wl-clipboard`.
 - On X11, `clipboard-set` needs `agent-desktop-linux-clipboard-owner` beside the binary. npm installs and release archives include it; from source, build it with `cargo build --release -p agent-desktop-linux --bins`.
 - A private state root. A group-writable or world-readable `~/.agent-desktop` makes commands that write there fail with `INTERNAL`. Run `chmod 700` on it, or let agent-desktop create it.
 
@@ -65,12 +65,12 @@ Ref actions are semantic AT-SPI calls that never move the pointer or change the 
   <tbody>
     <tr><td>Observation and surfaces</td><td><code>snapshot</code>, <code>find</code>, <code>get</code>, <code>is</code>, <code>list-surfaces</code>, on X11 and Wayland</td><td></td><td></td></tr>
     <tr><td>Ref actions</td><td><code>click</code>, <code>right-click</code>, <code>type</code>, <code>set-value</code>, <code>clear</code>, <code>select</code>, <code>toggle</code>, <code>check</code>, <code>uncheck</code>, <code>expand</code>, <code>collapse</code>, <code>scroll-to</code>, when the element exposes the AT-SPI capability</td><td><code>focus</code>; <code>type</code> into a terminal text node; some Qt and libadwaita combos for <code>select</code></td><td>An element with no semantic route refuses and never falls back to physical input</td></tr>
-    <tr><td>Wheel scrolling</td><td></td><td><code>scroll</code>, <code>mouse-wheel</code>, X11 only</td><td>Headless <code>scroll</code>: <code>POLICY_DENIED</code></td></tr>
-    <tr><td>Pointer gestures</td><td></td><td><code>double-click</code>, <code>triple-click</code>, <code>hover</code>, <code>drag</code>, <code>mouse-click</code>, <code>mouse-move</code>, X11 only</td><td>Wayland: <code>ACTION_NOT_SUPPORTED</code>, cause <code>wayland_session</code></td></tr>
-    <tr><td>Keyboard</td><td><code>press</code> on X11 and Mutter Wayland. A scoped headless <code>press</code> needs the target window already active</td><td>A scoped <code>press</code> to a background app (X11)</td><td>Blocked combos such as <code>alt+f4</code> without <code>--force</code></td></tr>
+    <tr><td>Wheel scrolling</td><td></td><td><code>scroll</code>, <code>mouse-wheel</code>, X11 and Hyprland</td><td>Headless <code>scroll</code>: <code>POLICY_DENIED</code></td></tr>
+    <tr><td>Pointer gestures</td><td></td><td><code>double-click</code>, <code>triple-click</code>, <code>hover</code>, <code>drag</code>, <code>mouse-click</code>, <code>mouse-move</code>, X11 and Hyprland</td><td>GNOME Wayland: <code>ACTION_NOT_SUPPORTED</code>, cause <code>wayland_session</code></td></tr>
+    <tr><td>Keyboard</td><td><code>press</code> on X11, Mutter Wayland, and Hyprland. A scoped headless <code>press</code> needs the target window already active</td><td>A scoped <code>press</code> to a background app (X11)</td><td>Blocked combos such as <code>alt+f4</code> without <code>--force</code></td></tr>
     <tr><td>Held input</td><td></td><td></td><td><code>key-down</code>, <code>key-up</code>, <code>mouse-down</code>, <code>mouse-up</code></td></tr>
-    <tr><td>App and window</td><td><code>launch</code>, <code>list-apps</code>, <code>list-windows</code> on X11 and Wayland; window control and graceful <code>close-app</code> on X11</td><td></td><td><code>focus-window</code> and window control on Wayland: <code>ACTION_NOT_SUPPORTED</code></td></tr>
-    <tr><td>Capture</td><td><code>screenshot</code>, <code>list-displays</code></td><td></td><td>X11 under a compositing window manager (GNOME): display and <code>--screen</code> captures return <code>PLATFORM_NOT_SUPPORTED</code> (<code>details.reason: "compositing"</code>); capture one window instead. Wayland: portal consent on first use, and window targets are <code>PLATFORM_NOT_SUPPORTED</code></td></tr>
+    <tr><td>App and window</td><td><code>launch</code>, <code>list-apps</code>, <code>list-windows</code> on X11 and Wayland; window control and graceful <code>close-app</code> on X11 and Hyprland</td><td></td><td><code>focus-window</code> and window control on GNOME Wayland: <code>ACTION_NOT_SUPPORTED</code></td></tr>
+    <tr><td>Capture</td><td><code>screenshot</code>, <code>list-displays</code></td><td></td><td>X11 under a compositing window manager (GNOME): display and <code>--screen</code> captures return <code>PLATFORM_NOT_SUPPORTED</code> (<code>details.reason: "compositing"</code>); capture one window instead. GNOME Wayland: portal consent on first use, and window targets are <code>PLATFORM_NOT_SUPPORTED</code>. Hyprland captures windows and displays with no dialog</td></tr>
     <tr><td>Clipboard</td><td><code>clipboard-get</code>, <code>clipboard-set</code>, <code>clipboard-clear</code> (text, images, file lists)</td><td></td><td>Missing helper or <code>wl-clipboard</code>: <code>PLATFORM_NOT_SUPPORTED</code></td></tr>
     <tr><td>Wait</td><td>All modes; <code>--notification</code> on GNOME</td><td></td><td></td></tr>
     <tr><td>Notifications</td><td><code>list-notifications</code>, even with the list closed</td><td>Every dismiss and action, on X11</td><td>GNOME Shell only; otherwise <code>PLATFORM_NOT_SUPPORTED</code></td></tr>
@@ -78,6 +78,17 @@ Ref actions are semantic AT-SPI calls that never move the pointer or change the 
     <tr><td>System</td><td><code>status</code>, <code>permissions</code>, <code>version</code>, <code>batch</code>, <code>skills</code>, <code>session</code>, <code>trace</code>, <code>cursor-overlay</code></td><td></td><td>Wayland: the overlay setting saves with <code>rendered: false</code></td></tr>
   </tbody>
 </table>
+
+## Hyprland
+
+On a Hyprland session, detected when `HYPRLAND_INSTANCE_SIGNATURE` names the instance that serves this session's `WAYLAND_DISPLAY`, agent-desktop controls windows through Hyprland's request socket and sends input through Wayland virtual devices:
+
+- `list-windows`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore`, and `close-app` work on native Wayland and Xwayland windows. `minimize` parks a window on the special workspace `special:minimized`.
+- Keys go through a virtual keyboard whose keymap holds the keys being sent, so `--headed type` takes accented and non-Latin text.
+- `--headed` pointer commands and physical ref clicks go through a virtual pointer. A native Wayland Qt combo box opens only for real pointer input, so a headless `click`, `expand`, or `select` on one returns `POLICY_DENIED` with `details.kind: "pointer_required"`; run it again with `--headed`.
+- `screenshot` copies a window or a display through `ext-image-copy-capture-v1`, with no consent dialog.
+
+The full list of Hyprland differences is in the `agent-desktop-linux` skill: `agent-desktop skills get agent-desktop-linux references/display-servers-and-input.md`.
 
 ## App naming
 

@@ -5,10 +5,12 @@ use agent_desktop_core::{
 use crate::system::SharedBus;
 use crate::system::capture::bus_lookup::BusLookup;
 use crate::system::capture::capture_env::CaptureEnv;
+use crate::system::capture::hypr_capture::capture_hyprland;
 use crate::system::capture::wayland_portal::capture_wayland;
 use crate::system::capture::window_context::real_decode;
 use crate::system::capture::{display, png_encode::encode_png, window};
 use crate::system::display::route::{Route, current};
+use crate::system::hyprland::HyprInstance;
 use crate::system::overlay::cursor_overlay;
 use crate::system::x11::DisplayReader;
 use crate::system::x11::capture::grab::DisplayGrabber;
@@ -46,14 +48,19 @@ fn wayland_window() -> AdapterError {
     .with_suggestion("Capture the screen instead, or run the application in an X11 session")
 }
 
-/// Captures `target` by the session's route. A window is only ever captured on
-/// X11; every Wayland window request is refused before any X11 call.
+/// Captures `target` by the session's route. Under Hyprland the compositor
+/// copies the display or the window itself; any other Wayland compositor
+/// captures through the portal, which refuses single windows before any X11
+/// call.
 pub(crate) fn capture_with(
     env: &CaptureEnv,
     route: &Route,
     target: ScreenshotTarget,
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
+    if let (Route::Wayland, Some(instance)) = (route, HyprInstance::detect()) {
+        return capture_hyprland(&instance, &target, deadline).map_err(not_delivered);
+    }
     capture_through(env, route, target, deadline, &capture_wayland)
 }
 
@@ -87,7 +94,13 @@ pub(crate) fn capture_frame_with(
     deadline: Deadline,
 ) -> Result<ImageBuffer, AdapterError> {
     match route {
-        Route::Wayland => Err(wayland_window()),
+        Route::Wayland => match HyprInstance::detect() {
+            Some(instance) => {
+                let target = ScreenshotTarget::ExactWindow(window.clone());
+                capture_hyprland(&instance, &target, deadline)
+            }
+            None => Err(wayland_window()),
+        },
         Route::X11(_) => window::capture(env, window, true, deadline),
     }
     .map_err(not_delivered)

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Features
+
+* Support Hyprland on Linux. `list-windows`, `focus-window`, `move-window`, `resize-window`, `minimize`, `maximize`, `restore`, `close-app` and `launch --activate` drive native Wayland and Xwayland windows through Hyprland's request socket; `press`, `type` and the `--headed` pointer commands send input through a Wayland virtual keyboard and pointer; `screenshot` captures a window or display through `ext-image-copy-capture-v1` with no consent dialog. Refs are placed from Hyprland's window origins, and the pointer receiver is proved from its stacking. Scroll areas, lists and documents carry the `Scroll` capability, so `scroll @ref --headed` wheels them.
+
 ### Bug Fixes
 
 * A ref taken on a menu or popup that has since closed returns `STALE_REF` with `details.kind: surface_closed`. A selector wait on a surface that is not open yet keeps polling, and a wait for the target to go succeeds with `target_absent: true` once the surface closes.
@@ -9,6 +13,7 @@
 * A write to a password field that reads back as mask characters reports `delivered_unverified` with `verification_reason: "secure_field"` instead of a mismatch.
 * A ref whose bounds were captured in window coordinates, as every ref on Hyprland is, no longer counts as moved when its action checks that the target holds still: only a screen-space capture is compared with the live screen bounds.
 * A skeleton snapshot gives the drill-down anchor of a collapsed container that draws no area, such as an unrevealed banner, to its nearest drawn ancestor.
+* On Linux, a headed `scroll`, and a pointer click that has no hit-tested point, aim at the centre of the part of the target that a display shows, so a target that runs past the edge of its monitor still takes the input.
 
 ## [1.1.0](https://github.com/vercel-labs/agent-desktop/compare/v1.0.2...v1.1.0) (2026-11-02)
 

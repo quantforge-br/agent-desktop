@@ -25,6 +25,7 @@ pub(crate) fn deliver(
     lease: &InteractionLease,
 ) -> Option<Result<ActionResult, AdapterError>> {
     deliver_with(&request.action, |button| {
+        super::pointer_gate::require_pointer_capability(lease.deadline())?;
         click_shell(bus, element, button, request.policy, lease)
     })
 }

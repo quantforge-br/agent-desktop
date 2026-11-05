@@ -49,7 +49,8 @@ pub(crate) fn click_steps(
 ) -> Result<Vec<ActionStep>, AdapterError> {
     ensure_headed_click_policy(policy)?;
     ensure_budget(deadline)?;
-    if world.backend()? == Backend::Wayland {
+    let virtual_pointer = world.virtual_input();
+    if world.backend()? == Backend::Wayland && !virtual_pointer {
         return Err(world.pointer_refusal("click"));
     }
     let at = aim_point(world, element, spec.verified.as_ref(), deadline)?;
@@ -58,9 +59,13 @@ pub(crate) fn click_steps(
     let plans = vec![world.plan_click(&map, at.clone(), &spec.button, spec.count)?];
     send_bursts(world, element, &at, Gesture::clicks(plans), deadline)?;
     Ok(vec![
-        ActionStep::succeeded("XTEST.click")
-            .with_mechanism(StepMechanism::PhysicalSynthetic)
-            .with_verified(false),
+        ActionStep::succeeded(if virtual_pointer {
+            "VirtualPointer.click"
+        } else {
+            "XTEST.click"
+        })
+        .with_mechanism(StepMechanism::PhysicalSynthetic)
+        .with_verified(false),
     ])
 }
 
@@ -87,7 +92,8 @@ pub(crate) fn scroll_steps(
 ) -> Result<Vec<ActionStep>, AdapterError> {
     ensure_headed_click_policy(policy)?;
     ensure_budget(deadline)?;
-    if world.backend()? == Backend::Wayland {
+    let virtual_pointer = world.virtual_input();
+    if world.backend()? == Backend::Wayland && !virtual_pointer {
         return Err(world.pointer_refusal("scroll"));
     }
     let at = aim_point(world, element, None, deadline)?;
@@ -96,9 +102,13 @@ pub(crate) fn scroll_steps(
         crate::input::mouse::wheel_plan::plan_wheel(&map, at.clone(), deltas.0, deltas.1, &[])?;
     send_bursts(world, element, &at, Gesture::unbounded(plans), deadline)?;
     Ok(vec![
-        ActionStep::succeeded("XTEST.scroll")
-            .with_mechanism(StepMechanism::PhysicalSynthetic)
-            .with_verified(false),
+        ActionStep::succeeded(if virtual_pointer {
+            "VirtualPointer.scroll"
+        } else {
+            "XTEST.scroll"
+        })
+        .with_mechanism(StepMechanism::PhysicalSynthetic)
+        .with_verified(false),
     ])
 }
 
@@ -199,10 +209,7 @@ pub(crate) fn aim_point(
     }
     match world.bounds(element, deadline)? {
         Some(rect) if rect.width > 0.0 && rect.height > 0.0 => {
-            let point = Point {
-                x: rect.x + rect.width / 2.0,
-                y: rect.y + rect.height / 2.0,
-            };
+            let point = super::physical_aim::visible_centre(rect, &world.displays(deadline));
             point.validate()?;
             Ok(point)
         }
@@ -239,34 +246,31 @@ pub(crate) fn click_shell(
     let displays = crate::system::list_displays(deadline)?;
     let point = super::shell_aim::aim(extents, &displays)?;
     let world = LiveWorld { bus, lease };
-    match world.backend()? {
-        Backend::X11(_) => {
-            click_steps(
-                &world,
-                node,
-                ClickSpec {
-                    button,
-                    count: 1,
-                    verified: Some(point.clone()),
-                },
-                policy,
-                deadline,
-            )?;
-        }
-        Backend::Wayland => {
-            world.validate_pointer(node, &point, deadline)?;
-            crate::input::wayland::pointer_send::send(
-                &MouseEvent {
-                    point: point.clone(),
-                    button,
-                    kind: MouseEventKind::Click { count: 1 },
-                    modifiers: Vec::new(),
-                },
-                &displays,
-                &mut || world.validate_pointer(node, &point, deadline),
-                deadline,
-            )?;
-        }
+    if matches!(world.backend()?, Backend::X11(_)) || world.virtual_input() {
+        click_steps(
+            &world,
+            node,
+            ClickSpec {
+                button,
+                count: 1,
+                verified: Some(point.clone()),
+            },
+            policy,
+            deadline,
+        )?;
+    } else {
+        world.validate_pointer(node, &point, deadline)?;
+        crate::input::wayland::pointer_send::send(
+            &MouseEvent {
+                point: point.clone(),
+                button,
+                kind: MouseEventKind::Click { count: 1 },
+                modifiers: Vec::new(),
+            },
+            &displays,
+            &mut || world.validate_pointer(node, &point, deadline),
+            deadline,
+        )?;
     }
     Ok(point)
 }

@@ -1,3 +1,4 @@
+use crate::input::wayland::virtual_input::virtual_send;
 use crate::system::display::display_server::DisplayServer;
 use crate::tree::properties::node_read::COMPONENT_INTERFACE;
 use crate::tree::vocabulary::role_numbers::{
@@ -21,9 +22,24 @@ const WHEEL_TARGETS: [u32; 8] = [
 
 /// Whether a node can take a wheel at its centre as a scroll: its role moves
 /// content under a wheel, it has bounds to aim at, and the session has a
-/// pointer leg. A Wayland session has none, so no node is eligible there.
+/// pointer leg.
 pub(crate) fn eligible(role: u32, interfaces: &[String], session: &DisplayServer) -> bool {
-    matches!(session, DisplayServer::X11(_)) && wheel_target(role, interfaces)
+    wheel_target(role, interfaces)
+        && has_wheel_leg(session, || virtual_send::compositor().is_some())
+}
+
+/// Whether the session has a pointer leg to aim a wheel with: an X11 display,
+/// or a Wayland compositor whose virtual pointer this adapter drives, as
+/// Hyprland's is. Any other Wayland compositor has none.
+pub(crate) fn has_wheel_leg(
+    session: &DisplayServer,
+    virtual_pointer: impl FnOnce() -> bool,
+) -> bool {
+    match session {
+        DisplayServer::X11(_) => true,
+        DisplayServer::Wayland => virtual_pointer(),
+        DisplayServer::Unavailable(_) => false,
+    }
 }
 
 /// The part of eligibility a node decides alone: a role that moves content

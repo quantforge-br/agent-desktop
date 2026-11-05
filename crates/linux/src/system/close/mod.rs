@@ -10,6 +10,7 @@ use world::{Live, World};
 mod fake;
 mod force;
 mod graceful;
+mod hypr_close;
 mod refusal;
 mod standing;
 mod world;
