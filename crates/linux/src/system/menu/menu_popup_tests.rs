@@ -376,3 +376,21 @@ fn unread_or_partial_popup_children_do_not_establish_a_menu_surface() {
     missing.child_count = Some(2);
     assert!(top_level(&missing).is_none());
 }
+
+#[test]
+fn a_menu_button_whose_toggle_advertises_the_popup_exposes_its_panel_and_one_without_does_not() {
+    use crate::tree::vocabulary::state_bits::{EXPANDED, PRESSED};
+    let opener = |toggle_states: &[u32]| {
+        let panel = node(
+            PANEL,
+            "",
+            &[SHOWING],
+            vec![node(BUTTON, "Item", &[SHOWING], vec![])],
+        );
+        let toggle = node(TOGGLE, "Menu", toggle_states, vec![]);
+        node(BUTTON, "Menu", &[SHOWING, EXPANDED], vec![toggle, panel])
+    };
+    let advertised = opener(&[SHOWING, PRESSED, HAS_POPUP]);
+    assert_eq!(families(&in_window(&advertised)), [MenuFamily::Gtk4Popover]);
+    assert!(in_window(&opener(&[SHOWING, PRESSED])).is_empty());
+}

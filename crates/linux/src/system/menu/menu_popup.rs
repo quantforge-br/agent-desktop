@@ -139,20 +139,24 @@ fn showing_buttons(node: &Node, depth: usize) -> usize {
         .sum()
 }
 
-/// The showing panel of a menu button whose popover is open: the button
-/// advertises a popup and is expanded and showing, its inner toggle is
-/// pressed, and exactly one of its panels shows. The states alone are what a
-/// toolkit can set without opening anything; the panel is the part that exists
-/// only while the popover does.
+/// The showing panel of a menu button whose popover is open: the button is
+/// expanded and showing, its inner toggle is pressed, one of the two
+/// advertises a popup, and exactly one of its panels shows. Recent GTK 4
+/// releases set the popup state on the toggle and not on the button. The
+/// states alone are what a toolkit can set without opening anything; the
+/// panel is the part that exists only while the popover does.
 fn opened_button_popover(node: &Node) -> Option<&Node> {
+    let pressed_toggle = node
+        .children
+        .iter()
+        .find(|child| role(child) == Some(TOGGLE_BUTTON) && has_state(child, PRESSED));
+    let advertised = has_state(node, HAS_POPUP)
+        || pressed_toggle.is_some_and(|toggle| has_state(toggle, HAS_POPUP));
     if role(node) != Some(PUSH_BUTTON)
-        || !has_state(node, HAS_POPUP)
+        || !advertised
         || !has_state(node, EXPANDED)
         || !has_state(node, SHOWING)
-        || !node
-            .children
-            .iter()
-            .any(|child| role(child) == Some(TOGGLE_BUTTON) && has_state(child, PRESSED))
+        || pressed_toggle.is_none()
     {
         return None;
     }
