@@ -91,9 +91,13 @@ outruns the budget (`details.kind: multi_click_window`), stops the gesture with
 `ACTION_FAILED`; `details.delivered_clicks` counts the clicks already sent and
 the disposition is `delivered_unverified`. Inspect the app before retrying.
 
-`hover @ref` proves the receiver the same way before the move; a covered target
-or an unproven receiver is refused (`ACTION_FAILED`, `not_delivered`, cursor
-unmoved). `hover --xy` has no target element to prove.
+`hover @ref` proves the receiver the same way before the move. A covered target
+is waited on for `--timeout-ms` (default 5000) and then ends with `TIMEOUT`,
+`details.kind: actionability_timeout`, the covering window in
+`details.last_report`, cursor unmoved; `drag` does the same for either endpoint.
+With `--timeout-ms 0` a covered target or an unproven receiver is refused at
+once (`ACTION_FAILED`, `not_delivered`). `hover --xy` has no target element to
+prove.
 
 ## Keys and `press`
 

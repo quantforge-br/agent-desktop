@@ -5,10 +5,11 @@ use crate::{
         helpers::{apply_post_action_wait, validate_post_action_wait},
         operation_response::operation_response,
         point_resolve::{PointResolveArgs, require_cursor_policy, require_pointer_capability},
+        point_retry::retry_leased_point_phase,
         pointer_action::{
             PointResolveAttempt, before_first_event, ensure_point_deadline,
             focus_point_under_lease, point_deadline, resolve_point_under_lease,
-            retry_leased_point_phase, wait_for_point_with_deadline,
+            wait_for_point_with_deadline,
         },
     },
     context::CommandContext,

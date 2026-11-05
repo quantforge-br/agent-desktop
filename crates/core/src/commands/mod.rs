@@ -48,6 +48,7 @@ pub mod open_system_surface;
 pub(crate) mod operation_response;
 pub mod permissions;
 pub(crate) mod point_resolve;
+pub(crate) mod point_retry;
 pub(crate) mod pointer_action;
 pub mod press;
 pub mod query;

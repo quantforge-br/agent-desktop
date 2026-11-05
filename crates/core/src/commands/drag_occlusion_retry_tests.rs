@@ -7,6 +7,7 @@ struct TransientOcclusionAdapter {
     lease_acquisitions: AtomicU32,
     lease_held: Arc<AtomicBool>,
     captured: Mutex<Option<DragParams>>,
+    occlusions: u32,
 }
 
 struct LeaseFlag(Arc<AtomicBool>);
@@ -19,11 +20,16 @@ impl Drop for LeaseFlag {
 
 impl TransientOcclusionAdapter {
     fn new() -> Self {
+        Self::occluded_for(1)
+    }
+
+    fn occluded_for(occlusions: u32) -> Self {
         Self {
             hit_tests: AtomicU32::new(0),
             lease_acquisitions: AtomicU32::new(0),
             lease_held: Arc::new(AtomicBool::new(false)),
             captured: Mutex::new(None),
+            occlusions,
         }
     }
 }
@@ -56,7 +62,7 @@ impl ObservationOps for TransientOcclusionAdapter {
         _point: crate::Point,
         _deadline: crate::Deadline,
     ) -> Result<HitTestResult, AdapterError> {
-        if self.hit_tests.fetch_add(1, Ordering::SeqCst) == 0 {
+        if self.hit_tests.fetch_add(1, Ordering::SeqCst) < self.occlusions {
             Ok(HitTestResult::InterceptedBy {
                 role: Some("AXSheet".into()),
                 name: Some("Transient sheet".into()),
@@ -124,6 +130,31 @@ fn drag_retries_transient_post_focus_occlusion_without_holding_lease() {
     assert_eq!(adapter.lease_acquisitions.load(Ordering::SeqCst), 2);
     assert!(!adapter.lease_held.load(Ordering::SeqCst));
     assert!(adapter.captured.lock().unwrap().is_some());
+}
+
+#[test]
+fn drag_that_stays_occluded_times_out_with_the_occluder_as_last_report() {
+    let _guard = HomeGuard::new();
+    let snapshot_id = cross_app_snapshot();
+    let adapter = TransientOcclusionAdapter::occluded_for(u32::MAX);
+    let mut args = cross_app_args(snapshot_id);
+    args.timeout_ms = Some(300);
+
+    let error = execute(args, &adapter, &CommandContext::default().with_headed(true)).unwrap_err();
+
+    assert_eq!(error.code(), "TIMEOUT");
+    let AppError::Adapter(adapter_error) = &error else {
+        panic!("expected adapter timeout")
+    };
+    let details = adapter_error.details.as_ref().expect("timeout details");
+    assert_eq!(details["kind"], "actionability_timeout");
+    assert!(
+        details["last_report"]
+            .to_string()
+            .contains("Transient sheet")
+    );
+    assert!(!adapter.lease_held.load(Ordering::SeqCst));
+    assert!(adapter.captured.lock().unwrap().is_none());
 }
 
 #[test]

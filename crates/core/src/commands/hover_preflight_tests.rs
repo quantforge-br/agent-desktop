@@ -181,6 +181,33 @@ fn headed_hover_retries_transient_post_focus_occlusion_without_holding_lease() {
     assert!(!adapter.lease_held.load(std::sync::atomic::Ordering::SeqCst));
 }
 
+#[test]
+fn headed_hover_that_stays_occluded_times_out_with_the_occluder_as_last_report() {
+    let _guard = HomeGuard::new();
+    let snapshot_id = ref_snapshot(42);
+    let adapter = OccludedTargetAdapter {
+        moved_to: Mutex::new(None),
+        occlusions_before_success: usize::MAX,
+        hit_tests: std::sync::atomic::AtomicUsize::new(0),
+        lease_acquisitions: std::sync::atomic::AtomicUsize::new(0),
+        lease_held: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+    let mut args = ref_args(snapshot_id);
+    args.timeout_ms = Some(300);
+
+    let err = execute(args, &adapter, &CommandContext::default().with_headed(true)).unwrap_err();
+
+    assert_eq!(err.code(), "TIMEOUT");
+    let AppError::Adapter(adapter_error) = &err else {
+        panic!("expected adapter timeout")
+    };
+    let details = adapter_error.details.as_ref().expect("timeout details");
+    assert_eq!(details["kind"], "actionability_timeout");
+    assert!(details["last_report"].to_string().contains("AXSheet"));
+    assert!(adapter.moved_to.lock().unwrap().is_none());
+    assert!(!adapter.lease_held.load(std::sync::atomic::Ordering::SeqCst));
+}
+
 struct BackgroundTargetAdapter {
     focused: std::sync::atomic::AtomicBool,
     hit_tests: std::sync::atomic::AtomicUsize,

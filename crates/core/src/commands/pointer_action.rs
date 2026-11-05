@@ -283,29 +283,6 @@ pub(crate) fn resolve_point_under_lease<'a>(
     )
 }
 
-pub(crate) fn retry_leased_point_phase<T>(
-    timeout_ms: Option<u64>,
-    deadline: crate::Deadline,
-    mut attempt: impl FnMut() -> Result<T, AppError>,
-) -> Result<T, AppError> {
-    let auto_wait = timeout_ms.is_some_and(|timeout_ms| timeout_ms > 0);
-    loop {
-        match attempt() {
-            Ok(value) => return Ok(value),
-            Err(error) if auto_wait && is_retryable_point_error(&error) => {
-                let remaining = deadline.remaining();
-                if remaining.is_zero() {
-                    return Err(point_actionability_timeout(Some(point_error_report(
-                        &error,
-                    ))));
-                }
-                std::thread::sleep(POLL_INTERVAL.min(remaining));
-            }
-            Err(error) => return Err(error),
-        }
-    }
-}
-
 fn scroll_point_target(
     args: crate::commands::point_resolve::PointResolveArgs<'_>,
     entry: &RefEntry,
@@ -333,7 +310,7 @@ fn point_detail<'a>(err: &'a AppError, key: &str) -> Option<&'a Value> {
     error.details.as_ref()?.get(key)
 }
 
-fn point_error_report(error: &AppError) -> Value {
+pub(crate) fn point_error_report(error: &AppError) -> Value {
     json!({
         "code": error.code(),
         "message": error.to_string(),
@@ -358,7 +335,7 @@ fn point_observed_bounds_hash(err: &AppError) -> Option<u64> {
     point_detail(err, "observed_bounds_hash").and_then(Value::as_u64)
 }
 
-fn is_retryable_point_error(err: &AppError) -> bool {
+pub(crate) fn is_retryable_point_error(err: &AppError) -> bool {
     match err {
         AppError::Adapter(error) if error.is_retryable_resolution_failure() => true,
         AppError::Adapter(error) if error.code == crate::ErrorCode::ActionFailed => {
