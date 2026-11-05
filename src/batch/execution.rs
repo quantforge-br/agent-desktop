@@ -1,6 +1,8 @@
 use agent_desktop_core::{
     AdapterError, AppError, Deadline, DeliverySemantics, ErrorCode, PermissionReport,
-    PlatformAdapter, SignalBaseline, SignalFilter, context::CommandContext,
+    PlatformAdapter, SignalBaseline,
+    commands::wait_event_baseline::{EventWaitTarget, capture_event_baseline},
+    context::CommandContext,
 };
 use serde_json::{Value, json};
 
@@ -58,8 +60,8 @@ pub(super) fn execute(
             continue;
         }
 
-        pending_baseline = match commands.get(index + 1).and_then(event_filter) {
-            Some(filter) => match adapter.capture_signal_baseline(&filter, deadline) {
+        pending_baseline = match commands.get(index + 1).and_then(event_target) {
+            Some(target) => match capture_event_baseline(&target, adapter, deadline) {
                 Ok(baseline) => Some(Ok(baseline)),
                 Err(error) => {
                     let wait_index = index + 1;
@@ -69,7 +71,7 @@ pub(super) fn execute(
                         &commands[index].name,
                         wait_index,
                         wait_command,
-                        error,
+                        adapter_error(error),
                     );
                     push_small_entry(
                         &mut results,
@@ -174,13 +176,21 @@ pub(super) fn execute(
     Ok(body)
 }
 
-fn event_filter(command: &PreparedCommand) -> Option<SignalFilter> {
+fn event_target(command: &PreparedCommand) -> Option<EventWaitTarget<'_>> {
     match &command.command {
-        Commands::Wait(args) if args.event.event.is_some() => Some(SignalFilter {
-            app: args.app.clone(),
-            process: None,
+        Commands::Wait(args) => Some(EventWaitTarget {
+            event: args.event.event.as_deref()?,
+            app: args.app.as_deref(),
+            window_id: args.event.window_id.as_deref(),
         }),
         _ => None,
+    }
+}
+
+fn adapter_error(error: AppError) -> AdapterError {
+    match error {
+        AppError::Adapter(error) => error,
+        other => AdapterError::internal(other.to_string()),
     }
 }
 

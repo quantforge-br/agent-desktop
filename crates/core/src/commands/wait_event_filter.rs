@@ -23,11 +23,15 @@ pub(crate) fn signal_filter(
         process,
     };
     let Some(app) = input.app.as_deref() else {
-        let process = window_process(input.window_id.as_deref(), adapter, deadline)?;
+        let process = window_process(input.window_id.as_deref(), None, adapter, deadline);
         return Ok(with_process(process));
     };
     if matches!(requested, EventKind::AppLaunched) {
         return Ok(with_process(None));
+    }
+    let narrowed = window_process(input.window_id.as_deref(), Some(app), adapter, deadline);
+    if let Some(process) = narrowed {
+        return Ok(with_process(Some(process)));
     }
     let successful_seed = seeded_baseline.and_then(|baseline| baseline.as_ref().ok());
     let seeded_process = successful_seed
@@ -57,26 +61,24 @@ pub(crate) fn signal_filter(
 /// instance is answered `APP_UNRESPONSIVE` on the window-id route the same way
 /// the `--app` route answers it. A window the list does not hold yet leaves
 /// the wait unscoped: `--window-id` narrows a match and never requires one.
-fn window_process(
+/// With `app` set, only a window of that application narrows: the id picks
+/// one instance when several run under the same name.
+pub(crate) fn window_process(
     window_id: Option<&str>,
+    app: Option<&str>,
     adapter: &dyn PlatformAdapter,
     deadline: crate::Deadline,
-) -> Result<Option<ProcessIdentity>, AppError> {
-    let Some(window_id) = window_id else {
-        return Ok(None);
-    };
-    let Ok(windows) = adapter.list_windows(&crate::adapter::WindowFilter::default(), deadline)
-    else {
-        return Ok(None);
-    };
-    Ok(windows
-        .into_iter()
-        .find(|window| window.id == window_id)
-        .and_then(|window| {
-            window
-                .process_instance
-                .map(|instance| ProcessIdentity::new(window.pid, instance))
-        }))
+) -> Option<ProcessIdentity> {
+    let window_id = window_id?;
+    let windows = adapter
+        .list_windows(&crate::adapter::WindowFilter::default(), deadline)
+        .ok()?;
+    let window = windows.into_iter().find(|window| {
+        window.id == window_id
+            && app.is_none_or(|app| crate::system::app_info::app_name_matches(&window.app, app))
+    })?;
+    let instance = window.process_instance?;
+    Some(ProcessIdentity::new(window.pid, instance))
 }
 
 pub(crate) fn process_from_baseline(

@@ -26,6 +26,10 @@ mod result_entry;
 mod baseline_tests;
 
 #[cfg(test)]
+#[path = "event_scope_tests.rs"]
+mod event_scope_tests;
+
+#[cfg(test)]
 #[path = "open_system_surface_parity_tests.rs"]
 mod open_system_surface_parity_tests;
 
