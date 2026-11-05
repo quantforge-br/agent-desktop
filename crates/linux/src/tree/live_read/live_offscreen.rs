@@ -20,7 +20,7 @@ use crate::tree::properties::node_read::{call, get_one, string_value};
 use crate::tree::properties::toolkit_trust::{
     read_toolkit, reports_global_position, screen_is_toplevel_relative,
 };
-use crate::tree::surfaces::twin_frames::read_twins;
+use crate::tree::surfaces::twin_frames::{read_twins, same_size_frames};
 use crate::tree::surfaces::window_extents::{read_placing_extents, read_window_extents};
 use crate::tree::surfaces::window_tie::WindowTie;
 use crate::tree::vocabulary::state_bits::{ICONIFIED, StateBits};
@@ -222,7 +222,14 @@ fn place(bus: &SharedBus, element: &AtspiElement, deadline: Deadline) -> Placeme
                 return None;
             }
             let facts = facts()?;
-            if let Some(state) = hypr_window_state(facts.pid, &facts.title, deadline) {
+            let same_size = |size| {
+                within(deadline, async {
+                    Ok(same_size_frames(connection.inner(), frame, size).await)
+                })
+                .ok()
+                .flatten()
+            };
+            if let Some(state) = hypr_window_state(&facts, same_size, deadline) {
                 return Some(state);
             }
             let found =

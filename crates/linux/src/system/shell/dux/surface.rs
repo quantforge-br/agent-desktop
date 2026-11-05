@@ -40,6 +40,13 @@ impl Surface {
         }
     }
 
+    /// The surface the shell maps under the layer-shell `namespace`.
+    pub(crate) fn of_namespace(namespace: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|surface| surface.namespace() == namespace)
+    }
+
     pub(crate) fn title(self) -> &'static str {
         match self {
             Self::NotificationCenter => "Notification center",

@@ -24,6 +24,7 @@
 * On Linux, GTK 4.24 menu-button popovers and GTK 3 popup menus under Hyprland are found and placed, so `--surface menu` snapshots and their item clicks work.
 * `hover` and `drag` on a target that stays covered, for example by another window, end with `TIMEOUT`, `details.kind: actionability_timeout` and the covering element in `details.last_report` when `--timeout-ms` runs out, instead of a bare deadline or interaction-lock timeout.
 * On Hyprland, `resize-window` reports success only after the new size has held for 100 ms, so a window that clamps to its own minimum size ends `ACTION_FAILED` with `cause: readback_mismatch` instead of `delivered_verified`.
+* On a dux-shell session, `open-system-surface`, `list-windows` and `snapshot --include-bounds` place the dock, the top bar and their items where they are drawn, and `list-windows` titles them as `open-system-surface` does. A shell window that matches no single layer keeps no bounds instead of a guessed position.
 
 ## [1.1.0](https://github.com/vercel-labs/agent-desktop/compare/v1.0.2...v1.1.0) (2026-11-02)
 

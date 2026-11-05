@@ -9,16 +9,16 @@ const REPLY: &str = r#"{
 }}}"#;
 
 #[test]
-fn layers_of_every_level_are_listed_with_size_and_owner() {
+fn layers_of_every_level_are_listed_with_corner_size_and_owner() {
     let layers = parse(REPLY).expect("parsed");
 
-    let seen: Vec<(&str, i64, i64, u32)> = layers
+    let seen: Vec<_> = layers
         .iter()
         .map(|layer| {
             (
                 layer.namespace.as_str(),
-                layer.width,
-                layer.height,
+                (layer.x, layer.y),
+                (layer.width, layer.height),
                 layer.pid,
             )
         })
@@ -26,9 +26,9 @@ fn layers_of_every_level_are_listed_with_size_and_owner() {
     assert_eq!(
         seen,
         vec![
-            ("quickshell", 1280, 720, 50),
-            ("dms:dock", 1280, 74, 50),
-            ("dms:control-center", 712, 720, 50),
+            ("quickshell", (0, 0), (1280, 720), 50),
+            ("dms:dock", (0, 646), (1280, 74), 50),
+            ("dms:control-center", (0, 0), (712, 720), 50),
         ]
     );
 }

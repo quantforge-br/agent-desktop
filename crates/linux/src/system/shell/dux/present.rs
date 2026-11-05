@@ -39,6 +39,13 @@ fn closed(surface: Surface, detail: &str) -> AdapterError {
     .with_details(json!({ "surface": surface.title(), "detail": detail }))
 }
 
+fn mapped(surface: Surface, pid: u32, layers: &[Layer]) -> Result<&Layer, AdapterError> {
+    layers
+        .iter()
+        .find(|layer| layer.namespace == surface.namespace() && layer.pid == pid)
+        .ok_or_else(|| closed(surface, "the compositor maps no such surface"))
+}
+
 /// The window that presents the surface now. The compositor says the surface
 /// is mapped (a layer of the shell process under the surface's namespace),
 /// and the one window of the shell's application that has the layer's size
@@ -49,10 +56,7 @@ pub(crate) fn identify<'a>(
     layers: &[Layer],
     frames: &'a [Frame],
 ) -> Result<&'a Frame, AdapterError> {
-    let layer = layers
-        .iter()
-        .find(|layer| layer.namespace == surface.namespace() && layer.pid == pid)
-        .ok_or_else(|| closed(surface, "the compositor maps no such surface"))?;
+    let layer = mapped(surface, pid, layers)?;
     let mut found = frames.iter().filter(|frame| {
         frame.showing
             && frame.width == layer.width
@@ -75,12 +79,13 @@ pub(crate) fn identify<'a>(
 
 fn info(
     surface: Surface,
-    pid: u32,
     app: String,
     frame: &Frame,
+    layer: &Layer,
 ) -> Result<WindowInfo, AdapterError> {
     let id = window_id::encode(frame.element.bus_name(), frame.element.path())
         .ok_or_else(|| AdapterError::internal("The shell window has no window id"))?;
+    let pid = layer.pid;
     Ok(WindowInfo {
         id,
         title: surface.title().to_owned(),
@@ -88,8 +93,8 @@ fn info(
         pid: pid.into(),
         process_instance: process_facts::read(pid).map(|facts| facts.instance),
         bounds: Some(Rect {
-            x: 0.0,
-            y: 0.0,
+            x: layer.x as f64,
+            y: layer.y as f64,
             width: frame.width as f64,
             height: frame.height as f64,
         }),
@@ -111,7 +116,8 @@ pub(crate) fn resolve_with(
     let layers = stage.layers(deadline)?;
     let (app, frames) = stage.frames(deadline)?;
     let frame = identify(surface, stage.pid(), &layers, &frames)?;
-    info(surface, stage.pid(), app, frame)
+    let layer = mapped(surface, stage.pid(), &layers)?;
+    info(surface, app, frame, layer)
 }
 
 fn progress(error: AdapterError, opened_by_call: bool, reply: Option<&str>) -> AdapterError {

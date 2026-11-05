@@ -14,6 +14,8 @@ fn malformed() -> AdapterError {
 fn layer_of(value: &Value) -> Option<Layer> {
     Some(Layer {
         namespace: value.get("namespace")?.as_str()?.to_owned(),
+        x: value.get("x")?.as_i64()?,
+        y: value.get("y")?.as_i64()?,
         width: value.get("w")?.as_i64()?,
         height: value.get("h")?.as_i64()?,
         pid: u32::try_from(value.get("pid")?.as_i64()?).ok()?,

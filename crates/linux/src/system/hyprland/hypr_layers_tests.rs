@@ -39,3 +39,15 @@ fn a_reply_that_is_not_a_monitor_map_is_refused() {
     assert!(parse_layers("[]").is_err());
     assert!(parse_layers(r#"{"DP-5": {"levels": {"top": []}}}"#).is_err());
 }
+
+#[test]
+fn frames_are_counted_by_size_and_one_unreadable_frame_leaves_the_count_unknown() {
+    let size = (1280, 74);
+    let seen = [Some(size), Some((1280, 44)), Some(size)];
+    assert_eq!(HyprLayer::frames_of_size(seen, size), Some(2));
+    assert_eq!(
+        HyprLayer::frames_of_size([Some(size), None, Some((1, 1))], size),
+        None
+    );
+    assert_eq!(HyprLayer::frames_of_size([], size), Some(0));
+}

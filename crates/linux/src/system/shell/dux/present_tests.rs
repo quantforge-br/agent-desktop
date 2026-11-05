@@ -16,6 +16,8 @@ const PID: u32 = 50;
 fn layer(namespace: &str, width: i64, height: i64) -> Layer {
     Layer {
         namespace: namespace.to_owned(),
+        x: 0,
+        y: 0,
         width,
         height,
         pid: PID,
@@ -223,6 +225,19 @@ fn resolving_reports_the_window_with_the_applications_name_and_the_surface_title
     );
     assert!(window.id.starts_with("w-"));
     assert_eq!(window.pid.get(), PID);
+}
+
+#[test]
+fn a_surface_is_placed_at_its_layers_corner_not_at_the_origin() {
+    let mut dock = layer("dms:dock", 1280, 74);
+    dock.y = 726;
+    let shell = Shell::new(vec![dock], vec![frame(2, 1280, 74, vec![FILLER])]);
+
+    let window = resolve_with(&shell, Surface::Dock, deadline()).expect("resolved");
+
+    let bounds = window.bounds.expect("placed");
+    assert_eq!((bounds.x, bounds.y), (0.0, 726.0));
+    assert_eq!((bounds.width, bounds.height), (1280.0, 74.0));
 }
 
 #[test]

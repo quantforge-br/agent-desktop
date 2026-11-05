@@ -18,7 +18,7 @@ use crate::tree::properties::read_purpose::ReadPurpose;
 use crate::tree::properties::toolkit_trust::{
     read_toolkit, reports_global_position, screen_is_toplevel_relative,
 };
-use crate::tree::surfaces::twin_frames::read_twins;
+use crate::tree::surfaces::twin_frames::{read_twins, same_size_frames};
 use crate::tree::surfaces::window_extents::{
     read_placing_extents_async, read_window_extents_async,
 };
@@ -240,7 +240,14 @@ fn place_of(
         extents: screen,
         global_position: false,
     };
-    if let Some(drawn) = hypr_frame(facts.pid, &facts.title, deadline) {
+    let same_size = |size| {
+        within(deadline, async {
+            Ok(same_size_frames(connection, frame, size).await)
+        })
+        .ok()
+        .flatten()
+    };
+    if let Some(drawn) = hypr_frame(&facts, same_size, deadline) {
         return Ok(Some(FramePlace {
             origin: (drawn.x, drawn.y),
             drawn: owner.is_none().then_some(drawn),

@@ -1,5 +1,7 @@
 use zbus::Connection;
 
+use crate::system::hyprland::hypr_layer::HyprLayer;
+
 use crate::system::REGISTRY_ROOT_PATH;
 use crate::system::window::window_filter::frame_state;
 use crate::system::x11::twin_tie::Twins;
@@ -59,6 +61,30 @@ pub(crate) async fn read_twins(
         });
     }
     twins_among(&siblings, frame, title)
+}
+
+/// How many top-level frames the application of `frame` has at `size`, by
+/// the toolkit's own rectangles; `None` when a frame cannot be read.
+pub(crate) async fn same_size_frames(
+    connection: &Connection,
+    frame: &AtspiElement,
+    size: (i32, i32),
+) -> Option<usize> {
+    let root = AtspiElement::new(frame.bus_name(), REGISTRY_ROOT_PATH, frame.pid());
+    let children = list_children(connection, &root).await.ok()?;
+    let mut sizes = Vec::with_capacity(children.len());
+    for (bus_name, path) in children {
+        let element = AtspiElement::new(bus_name, path, frame.pid());
+        let (node, _) = read_node_for(connection, &element, ReadPurpose::Frame)
+            .await
+            .ok()?;
+        sizes.push(
+            node.extents
+                .present()
+                .map(|extents| (extents.width, extents.height)),
+        );
+    }
+    HyprLayer::frames_of_size(sizes, size)
 }
 
 #[cfg(test)]
