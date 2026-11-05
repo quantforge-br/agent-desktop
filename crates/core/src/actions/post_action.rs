@@ -135,11 +135,14 @@ pub(crate) fn execute_verified_action_rebinding(
         expected_text.as_deref(),
         &observed,
     );
-    let physical_text_mismatch = verified == Some(false) && typed_by_keys(&action, &result);
-    if verified.is_none() || physical_text_mismatch {
+    let masked =
+        verified == Some(false) && masks_expected(&action, expected_text.as_deref(), &observed);
+    let physical_text_mismatch =
+        verified == Some(false) && !masked && typed_by_keys(&action, &result);
+    if verified.is_none() || masked || physical_text_mismatch {
         let reason = if physical_text_mismatch {
             "postcondition_mismatch"
-        } else if secure_value_is_redacted(&action, &observed) {
+        } else if masked || secure_value_is_redacted(&action, &observed) {
             "secure_field"
         } else {
             "insufficient_evidence"
@@ -211,6 +214,28 @@ fn secure_value_is_redacted(action: &Action, observed: &LiveElement) -> bool {
     action.writes_element_value()
         && observed.state.value.is_none()
         && crate::tree::state::has_state(&observed.state.states, crate::tree::state::SECURE)
+}
+
+/// A password field that reports its contents as one mask character per
+/// character, as GTK4's does, shows how long the value is but not what it is:
+/// a mask as long as the expected value cannot confirm or refute the write.
+fn masks_expected(action: &Action, expected_text: Option<&str>, observed: &LiveElement) -> bool {
+    const MASKS: [char; 4] = ['\u{25CF}', '\u{2022}', '*', '\u{2217}'];
+    let expected = match action {
+        Action::SetValue(expected) => Some(expected.as_str()),
+        Action::TypeText(_) => expected_text,
+        _ => None,
+    };
+    let (Some(expected), Some(value)) = (expected, observed.state.value.as_deref()) else {
+        return false;
+    };
+    let mut characters = value.chars();
+    let Some(mask) = characters.next().filter(|first| MASKS.contains(first)) else {
+        return false;
+    };
+    characters.all(|character| character == mask)
+        && value.chars().count() == expected.chars().count()
+        && expected.chars().any(|character| character != mask)
 }
 
 fn matches_postcondition(

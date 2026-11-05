@@ -84,9 +84,21 @@ fn judge(
     match guarded_read(port, secure) {
         None => Ok(Observed::Unread),
         Some(read) if read == expected => Ok(Observed::Matched),
+        Some(read) if is_masked(&read) => Ok(Observed::Unread),
         Some(read) if before == Some(read.as_str()) => Err(write_ignored()),
         Some(_) => Ok(Observed::Unchanged),
     }
+}
+
+/// A password field that reports one mask character per character of its
+/// text, as GTK4's does without a protected state, says how long its text is
+/// but not what it holds: two equal masks can hide two different texts.
+fn is_masked(text: &str) -> bool {
+    const MASKS: [char; 4] = ['\u{25CF}', '\u{2022}', '*', '\u{2217}'];
+    let mut characters = text.chars();
+    characters
+        .next()
+        .is_some_and(|first| MASKS.contains(&first) && characters.all(|next| next == first))
 }
 
 fn after_delete(cause: Option<AdapterError>) -> AdapterError {

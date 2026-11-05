@@ -264,3 +264,16 @@ fn ignored_semantic_type_does_not_repeat_an_exhausted_physical_route() {
     assert!(!hint.contains("Use 'type'"), "{hint}");
     assert!(!hint.contains("--headed"), "{hint}");
 }
+
+#[test]
+fn a_masked_field_that_reads_the_same_mask_after_a_write_is_unread_not_ignored() {
+    let mask = "\u{25CF}".repeat(7);
+    let mut fake = Fake::holding(&mask);
+    fake.landing = Some(mask.clone());
+    let (_, outcome) = replace(&fake, "other12").expect("a masked read cannot refute the write");
+    assert_eq!(outcome, DeliveryOutcome::Delivered(Observed::Unread));
+    let mut plain = Fake::holding("old text");
+    plain.landing = Some("old text".to_owned());
+    let error = replace(&plain, "new text").expect_err("an unchanged plain read is ignored");
+    assert_eq!(error.details.unwrap()["cause"], "write_ignored");
+}

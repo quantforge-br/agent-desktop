@@ -6,6 +6,7 @@
 
 * A ref taken on a menu or popup that has since closed returns `STALE_REF` with `details.kind: surface_closed`. A selector wait on a surface that is not open yet keeps polling, and a wait for the target to go succeeds with `target_absent: true` once the surface closes.
 * An action whose own effect makes the app replace the target element is verified on the replacement and reports `details.verification_target: "replacement"`.
+* A write to a password field that reads back as mask characters reports `delivered_unverified` with `verification_reason: "secure_field"` instead of a mismatch.
 * A ref whose bounds were captured in window coordinates, as every ref on Hyprland is, no longer counts as moved when its action checks that the target holds still: only a screen-space capture is compared with the live screen bounds.
 * A skeleton snapshot gives the drill-down anchor of a collapsed container that draws no area, such as an unrevealed banner, to its nearest drawn ancestor.
 

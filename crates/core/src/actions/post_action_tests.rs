@@ -365,3 +365,21 @@ fn clear_that_leaves_a_newline_is_not_verified() {
     assert_eq!(error.code, ErrorCode::ActionFailed);
     assert_eq!(error.disposition, DeliverySemantics::delivered_unverified());
 }
+
+#[test]
+fn a_mask_as_long_as_the_written_value_is_a_secure_field_and_a_shorter_one_a_mismatch() {
+    let masked = |count: usize| element(Some(&"\u{25CF}".repeat(count)), &[]);
+    let echoed = adapter(element(Some(""), &[]), masked(7));
+    let result = execute(&echoed, Action::SetValue("private".into())).expect("masked echo");
+    assert_eq!(
+        result.disposition(),
+        DeliverySemantics::delivered_unverified()
+    );
+    assert_eq!(
+        result.details.unwrap()["verification_reason"],
+        "secure_field"
+    );
+    let short = adapter(element(Some(""), &[]), masked(3));
+    let error = execute(&short, Action::SetValue("private".into())).unwrap_err();
+    assert_eq!(error.code, ErrorCode::ActionFailed);
+}
