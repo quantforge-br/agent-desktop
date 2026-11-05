@@ -122,6 +122,7 @@ agent-desktop expand @s8f3k2p9:e7
 
 - `select` picks an option by display text in a list, dropdown or combobox. For menu-backed controls it opens the menu, activates the item and checks the control value. A missing item or an unchanged value returns a structured error.
 - `check` and `uncheck` are idempotent and verify the final state. Prefer them over `toggle`. Use `toggle` only when the current state is unknown, and it needs readable before and after state.
+- A checkbox that advertises no toggle or click action, as a GTK 4 check button does, refuses `check`, `uncheck` and `toggle` with `POLICY_DENIED` (`supported_action`: physical fallback is denied). With `--headed`, Linux clicks it with the pointer and verifies the final state the same way.
 - `expand` and `collapse` act on disclosure triangles, tree items and accordions, and verify the final state.
 
 ## Scroll

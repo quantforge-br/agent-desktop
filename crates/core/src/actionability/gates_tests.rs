@@ -1,9 +1,9 @@
-use super::visibility;
+use super::{action_supported, visibility};
 use crate::actionability::evaluate::build_report;
 use crate::actionability::evidence::ActionabilityEvidence;
 use crate::actionability::stability::StabilityExpectation;
 use crate::actionability::status::ActionabilityStatus;
-use crate::{Action, ActionRequest, ElementState, Rect};
+use crate::{Action, ActionRequest, ElementState, ErrorCode, Rect};
 
 fn evidence(offscreen: Option<bool>, bounds: Option<Rect>) -> ActionabilityEvidence {
     ActionabilityEvidence {
@@ -186,4 +186,24 @@ fn visible_without_bounds_agrees_with_the_visibility_gate_for_every_state() {
             }
         }
     }
+}
+
+#[test]
+fn a_toggle_with_no_semantic_verb_needs_a_headed_click_and_names_the_policy_headless() {
+    let actionless = evidence(Some(false), Some(rect()));
+    for action in [Action::Toggle, Action::Check, Action::Uncheck] {
+        let headless = action_supported(&actionless, &ActionRequest::headless(action.clone()));
+        assert_eq!(headless.status, ActionabilityStatus::Fail, "{action:?}");
+        assert_eq!(
+            headless.terminal_code,
+            Some(ErrorCode::PolicyDenied),
+            "{action:?}"
+        );
+        let headed = action_supported(&actionless, &ActionRequest::headed(action.clone()));
+        assert_eq!(headed.status, ActionabilityStatus::Pass, "{action:?}");
+    }
+    let mut clickable = actionless;
+    clickable.available_actions = vec![crate::actions::capability::CLICK.into()];
+    let headless = action_supported(&clickable, &ActionRequest::headless(Action::Check));
+    assert_eq!(headless.status, ActionabilityStatus::Pass);
 }

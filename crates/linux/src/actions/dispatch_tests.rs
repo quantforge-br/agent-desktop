@@ -227,3 +227,39 @@ fn a_focus_has_no_verb_to_fall_back_from_because_it_calls_the_component() {
     use super::reaches_physical_without_verb;
     assert!(!reaches_physical_without_verb(&Action::SetFocus));
 }
+
+#[test]
+fn a_click_for_a_check_reports_the_check_and_why_the_semantic_verb_was_skipped() {
+    use super::click_for_state;
+    use crate::actions::click::no_semantic_verb;
+    let result = click_for_state(
+        &Action::Check,
+        no_semantic_verb(&Action::Check),
+        Ok(done("VirtualPointer.click")),
+    )
+    .expect("clicked");
+    assert_eq!(result.action, "check");
+    assert_eq!(result.steps[1].label(), "VirtualPointer.click");
+    let details = result.details.expect("refusal evidence");
+    assert_eq!(
+        details["semantic_refusal"]["details"]["semantic_verb"],
+        "absent"
+    );
+    let unaimed = click_for_state(
+        &Action::Uncheck,
+        no_semantic_verb(&Action::Uncheck),
+        Err(refusal(ErrorCode::ActionNotSupported, None)),
+    )
+    .expect_err("no pointer to aim");
+    assert_eq!(unaimed.details.expect("kept")["semantic_verb"], "absent");
+    let failed = click_for_state(
+        &Action::Toggle,
+        no_semantic_verb(&Action::Toggle),
+        Err(agent_desktop_core::AdapterError::new(
+            ErrorCode::ActionFailed,
+            "sent",
+        )),
+    )
+    .expect_err("a failed click stands");
+    assert_eq!(failed.code, ErrorCode::ActionFailed);
+}

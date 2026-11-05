@@ -178,10 +178,26 @@ pub(super) fn action_supported(
     if matches!(request.action, Action::Select(_)) && combo_select_applies(evidence) {
         return pass("supported_action");
     }
-    if capability::contains_any(
+    let semantic = capability::contains_any(
         &evidence.available_actions,
         capability::for_action(&request.action),
-    ) {
+    );
+    if !semantic
+        && matches!(
+            request.action,
+            Action::Toggle | Action::Check | Action::Uncheck
+        )
+    {
+        if request.policy.allow_cursor_move && request.policy.allow_focus_steal {
+            return pass("supported_action");
+        }
+        return fail_terminal(
+            "supported_action",
+            "semantic toggle is unavailable and physical fallback is denied",
+            ErrorCode::PolicyDenied,
+        );
+    }
+    if semantic {
         return pass("supported_action");
     }
     if request.action.may_use_focus_fallback() && request.policy.allow_focus_steal {

@@ -53,6 +53,48 @@ fn has_no_verb(error: &AdapterError) -> bool {
             .is_some_and(|verb| verb == "absent")
 }
 
+fn clicks_for_state(request: &ActionRequest) -> bool {
+    request.policy.is_headed()
+        && matches!(
+            request.action,
+            Action::Toggle | Action::Check | Action::Uncheck
+        )
+}
+
+/// A headed toggle, check or uncheck of an element that advertises no
+/// semantic verb, as a GTK 4 check button that exposes no action, clicks the
+/// element instead. The click is an ordinary pointer delivery, so the state
+/// core reads afterwards is what verifies it. A session with no pointer to
+/// aim keeps the semantic refusal.
+fn click_for_state(
+    action: &Action,
+    refusal: AdapterError,
+    clicked: Result<ActionResult, AdapterError>,
+) -> Result<ActionResult, AdapterError> {
+    match clicked {
+        Ok(mut result) => {
+            action.name().clone_into(&mut result.action);
+            result.steps.insert(
+                0,
+                ActionStep::skipped("Action.DoAction").with_mechanism(StepMechanism::SemanticApi),
+            );
+            result.details.get_or_insert_with(|| json!({}))["semantic_refusal"] = json!({
+                "code": refusal.code,
+                "message": refusal.message,
+                "details": refusal.details,
+            });
+            Ok(result)
+        }
+        Err(error)
+            if error.code == ErrorCode::ActionNotSupported
+                && error.disposition == DeliverySemantics::not_delivered() =>
+        {
+            Err(refusal)
+        }
+        Err(error) => Err(error),
+    }
+}
+
 fn name_stopped_target(
     mut error: AdapterError,
     pid: u32,
@@ -185,6 +227,11 @@ pub(crate) fn execute_action(
         Err(error) if reaches_physical_without_verb(&request.action) && has_no_verb(&error) => {
             deliver(bus, &request.action, Some(element), &request, lease)
         }
+        Err(error) if clicks_for_state(&request) && has_no_verb(&error) => click_for_state(
+            &request.action,
+            error,
+            deliver(bus, &Action::Click, Some(element), &request, lease),
+        ),
         other => other.map_err(|error| {
             name_stopped_target(
                 error,

@@ -13,6 +13,7 @@
 * A write to a password field that reads back as mask characters reports `delivered_unverified` with `verification_reason: "secure_field"` instead of a mismatch.
 * A ref whose bounds were captured in window coordinates, as every ref on Hyprland is, no longer counts as moved when its action checks that the target holds still: only a screen-space capture is compared with the live screen bounds.
 * A skeleton snapshot gives the drill-down anchor of a collapsed container that draws no area, such as an unrevealed banner, to its nearest drawn ancestor.
+* `check`, `uncheck` and `toggle` on a checkbox that advertises no toggle or click action, as a GTK 4 check button does, return `POLICY_DENIED` instead of `ACTION_NOT_SUPPORTED`, and with `--headed` Linux clicks the checkbox and verifies its final state.
 * On Linux, a headed `scroll`, and a pointer click that has no hit-tested point, aim at the centre of the part of the target that a display shows, so a target that runs past the edge of its monitor still takes the input.
 * On Linux, a headless `select` whose option index cannot be proved from the tree, and a headless click or expand of a native Wayland Qt combo box, return `POLICY_DENIED` with `details.kind: pointer_required` where a virtual pointer exists, so `--headed` can complete them.
 * On Linux, Qt actions are matched by their machine names (`ShowMenu`, `SetFocus`) although Qt reports their display names (`Show Menu`), so Qt combo boxes and menu buttons advertise and take their open action.
