@@ -1,5 +1,6 @@
 use agent_desktop_core::{AdapterError, Deadline};
 
+use super::hypr_unmatched::Unmatched;
 use super::hypr_window_key::WindowKey;
 use super::hypr_window_match::match_client;
 use super::hypr_window_op::MINIMIZED_WORKSPACE;
@@ -7,6 +8,8 @@ use crate::system::hyprland::HyprInstance;
 use crate::system::hyprland::hypr_client::HyprClient;
 use crate::system::hyprland::hypr_monitor::HyprMonitor;
 use crate::system::registry::listed_window::ListedWindow;
+use crate::system::window::listed_twins::twins_of;
+use crate::system::x11::twin_tie::broken_tie;
 
 /// Hyprland's view of the session, read once per listing.
 pub(crate) struct HyprView {
@@ -41,28 +44,61 @@ impl HyprView {
     }
 
     /// Gives each listed window the place, focus and visibility of its one
-    /// Hyprland client. The compositor's active window is the only focus
-    /// answer; a window with no single client keeps what the toolkit said
-    /// but is never the focused one.
+    /// Hyprland client. Same-titled windows of one process are told apart
+    /// the way `broken_tie` allows: the frame the toolkit reports active is
+    /// Hyprland's active client and, with two of them, the other frame is
+    /// the other client. A window is focused when it is Hyprland's active
+    /// client and its frame carries `ACTIVE`: a shell layer that takes the
+    /// keyboard, such as a launcher, leaves the active client in place but
+    /// takes `ACTIVE` from its frame. A window with no single client keeps
+    /// what the toolkit said but is never the focused one.
     pub(crate) fn annotate(&self, windows: &mut [ListedWindow]) {
-        let pids: Vec<u32> = windows.iter().map(|window| window.info.pid.get()).collect();
-        for window in windows {
-            let pid = window.info.pid.get();
-            let key = WindowKey {
-                pid,
-                title: &window.info.title,
-                bounds: None,
-                alone: pids.iter().filter(|listed| **listed == pid).count() == 1,
-            };
-            let Ok(client) = match_client(&self.clients, key) else {
+        let clients: Vec<Option<&HyprClient>> = (0..windows.len())
+            .map(|index| self.client_of(windows, index))
+            .collect();
+        for (window, client) in windows.iter_mut().zip(clients) {
+            let Some(client) = client else {
                 window.info.state.is_focused = false;
                 continue;
             };
             let minimized = client.state.workspace == MINIMIZED_WORKSPACE;
             window.info.bounds = Some(client.frame);
-            window.info.state.is_focused = self.active == Some(client.address);
+            window.info.state.is_focused = self.active == Some(client.address) && window.active;
             window.info.state.minimized = Some(minimized);
             window.info.state.visible = Some(!minimized && client.shown_on(&self.monitors));
+        }
+    }
+
+    fn client_of(&self, windows: &[ListedWindow], index: usize) -> Option<&HyprClient> {
+        let window = windows.get(index)?;
+        let pid = window.info.pid.get();
+        let key = WindowKey {
+            pid,
+            title: &window.info.title,
+            bounds: None,
+            alone: windows
+                .iter()
+                .filter(|listed| listed.info.pid.get() == pid)
+                .count()
+                == 1,
+        };
+        match match_client(&self.clients, key) {
+            Ok(client) => Some(client),
+            Err(Unmatched::Missing) => None,
+            Err(Unmatched::Several) => {
+                let twins: Vec<&HyprClient> = self
+                    .clients
+                    .iter()
+                    .filter(|client| {
+                        client.state.mapped
+                            && client.owner.pid == pid
+                            && client.owner.title == window.info.title
+                    })
+                    .collect();
+                let ids: Vec<u64> = twins.iter().map(|client| client.address).collect();
+                let address = broken_tie(&ids, self.active, &twins_of(windows, index)?)?;
+                twins.into_iter().find(|client| client.address == address)
+            }
         }
     }
 

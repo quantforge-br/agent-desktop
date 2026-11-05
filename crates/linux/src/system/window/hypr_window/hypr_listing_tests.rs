@@ -45,7 +45,7 @@ fn the_compositor_answers_place_focus_and_visibility() {
     let view = view(vec![shown, parked, elsewhere], 0x1);
     let mut windows = vec![
         listed("Mail", true),
-        listed("Doc", false),
+        listed("Doc", true),
         listed("Chat", false),
     ];
     view.annotate(&mut windows);
@@ -76,6 +76,33 @@ fn a_window_without_a_single_client_is_left_unplaced_and_unfocused() {
 }
 
 #[test]
+fn the_active_client_is_not_focused_while_its_frame_has_lost_active() {
+    let view = view(vec![client(0x1, "Doc", rect(0.0, 0.0, 10.0, 10.0))], 0x1);
+    let mut windows = vec![listed("Doc", false)];
+    view.annotate(&mut windows);
+    assert_eq!(windows[0].info.bounds, Some(rect(0.0, 0.0, 10.0, 10.0)));
+    assert_eq!(HyprView::focused(&windows), None);
+}
+
+#[test]
+fn two_same_titled_windows_are_told_apart_by_the_active_frame() {
+    let twins = || {
+        vec![
+            client(0x1, "Doc", rect(0.0, 0.0, 10.0, 10.0)),
+            client(0x2, "Doc", rect(50.0, 0.0, 10.0, 10.0)),
+        ]
+    };
+    let mut windows = vec![listed("Doc", false), listed("Doc", true)];
+    view(twins(), 0x2).annotate(&mut windows);
+    assert_eq!(windows[0].info.bounds, Some(rect(0.0, 0.0, 10.0, 10.0)));
+    assert_eq!(windows[1].info.bounds, Some(rect(50.0, 0.0, 10.0, 10.0)));
+    assert_eq!(HyprView::focused(&windows), Some(1));
+    let mut unproven = vec![listed("Doc", false), listed("Doc", false)];
+    view(twins(), 0x2).annotate(&mut unproven);
+    assert!(unproven.iter().all(|window| window.info.bounds.is_none()));
+}
+
+#[test]
 fn shell_frames_beside_its_one_toplevel_take_neither_its_place_nor_its_focus() {
     let view = view(
         vec![client(0x1, "What's New", rect(280.0, 62.0, 720.0, 720.0))],
@@ -83,7 +110,7 @@ fn shell_frames_beside_its_one_toplevel_take_neither_its_place_nor_its_focus() {
     );
     let mut windows = vec![
         listed("", false),
-        listed("What's New", false),
+        listed("What's New", true),
         listed("", false),
     ];
     view.annotate(&mut windows);
@@ -104,7 +131,7 @@ fn a_lone_window_takes_its_process_single_client_whatever_its_title() {
         vec![client(0x1, "Notes - draft", rect(0.0, 0.0, 300.0, 200.0))],
         0x1,
     );
-    let mut windows = vec![listed("Notes", false)];
+    let mut windows = vec![listed("Notes", true)];
     view.annotate(&mut windows);
     assert_eq!(HyprView::focused(&windows), Some(0));
     assert_eq!(windows[0].info.bounds, Some(rect(0.0, 0.0, 300.0, 200.0)));

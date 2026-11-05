@@ -15,9 +15,14 @@ pub(crate) struct Twins {
 /// every client is accounted for: the one frame the toolkit reports active is
 /// the client the window manager reports active, and with exactly two such
 /// frames the other frame is the other client. No accessibility field carries
-/// the X11 window id and a toolkit that reports no global position gives every
-/// window the same rectangle, so any other shape stays a tie.
-pub(crate) fn broken_tie(ids: &[u32], active_client: Option<u32>, twins: &Twins) -> Option<u32> {
+/// the window manager's id of a window (an X11 window id or a Hyprland
+/// address) and a toolkit that reports no global position gives every window
+/// the same rectangle, so any other shape stays a tie.
+pub(crate) fn broken_tie<Id: Copy + PartialEq>(
+    ids: &[Id],
+    active_client: Option<Id>,
+    twins: &Twins,
+) -> Option<Id> {
     let active_client = active_client.filter(|client| ids.contains(client))?;
     if twins.active.len() != ids.len() || twins.me >= twins.active.len() {
         return None;
