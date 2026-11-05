@@ -64,11 +64,28 @@ fn default_with_only_text_writes_text_content() {
 }
 
 #[test]
-fn omitted_text_defaults_to_empty_string_not_error() {
+fn omitted_content_is_invalid_args_and_leaves_the_clipboard_alone() {
+    let double = LocalDouble::new();
+    let err = execute(
+        ClipboardSetArgs {
+            text: None,
+            image: None,
+            file_urls: vec![],
+        },
+        &double,
+    )
+    .unwrap_err();
+    assert_eq!(err.code(), "INVALID_ARGS");
+    assert!(err.suggestion().unwrap().contains("clipboard-clear"));
+    assert!(double.seen.lock().unwrap().is_none());
+}
+
+#[test]
+fn explicit_empty_text_still_writes_empty_text() {
     let double = LocalDouble::new();
     let out = execute(
         ClipboardSetArgs {
-            text: None,
+            text: Some(String::new()),
             image: None,
             file_urls: vec![],
         },

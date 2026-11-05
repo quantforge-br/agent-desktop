@@ -42,7 +42,13 @@ fn build_content(args: ClipboardSetArgs) -> Result<ClipboardContent, AppError> {
             scale_factor: 1.0,
         }));
     }
-    Ok(ClipboardContent::Text(args.text.unwrap_or_default()))
+    match args.text {
+        Some(text) => Ok(ClipboardContent::Text(text)),
+        None => Err(AppError::invalid_input_with_suggestion(
+            "clipboard-set needs TEXT, --image, or --file-url",
+            "Pass the content to write. To empty the clipboard use clipboard-clear; an explicit empty TEXT still writes empty text.",
+        )),
+    }
 }
 
 fn image_read_error(error: std::io::Error) -> AppError {
