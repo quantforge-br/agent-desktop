@@ -4,6 +4,8 @@ use agent_desktop_core::{
 
 use crate::cli::Commands;
 
+pub(crate) mod probe_deadline;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PermissionNeed {
     None,

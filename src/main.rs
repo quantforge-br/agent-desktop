@@ -257,7 +257,10 @@ fn execute_with_adapter(
     let adapter: &dyn agent_desktop_core::PlatformAdapter = &adapter;
     let report = if command_policy::requires_permission_report(&cmd) {
         match deadline
-            .map_or_else(agent_desktop_core::Deadline::standard, Ok)
+            .map_or_else(
+                || command_policy::probe_deadline::permission_probe_deadline(&cmd),
+                Ok,
+            )
             .map_err(AppError::from)
             .and_then(|deadline| adapter.permission_report(deadline).map_err(AppError::from))
         {

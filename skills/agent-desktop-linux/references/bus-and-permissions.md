@@ -65,7 +65,11 @@ suggestion naming the next step, and the raw D-Bus error in `platform_detail`.
 | Socket gone | Restart `at-spi-dbus-bus.service`, or log out and back in | The accessibility bus socket is missing or refuses connections |
 
 A timeout is `TIMEOUT`, not one of these causes, and proves nothing about the
-bus. A bus that dies mid-session returns `INTERNAL` with a retry suggestion.
+bus. A bus that accepts the connection and never answers ends the permission
+check a command makes before it starts with `TIMEOUT`. That check is held to
+the command's own timeout, at least one second and at most five, so
+`snapshot --timeout-ms 1000` fails after one second, not five. A bus that dies
+mid-session returns `INTERNAL` with a retry suggestion.
 Registry reads, shell-owner lookups and permission probes drop the failed cached
 connection so a later call reconnects. An established adapter does not
 auto-start a replacement bus during recovery, so repeated calls remain

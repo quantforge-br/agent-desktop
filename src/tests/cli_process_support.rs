@@ -82,3 +82,39 @@ fn batch_without_a_bus_stops_at_permission_preflight_without_dispatching() {
     );
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// A socket that accepts the connection and never answers is a hung bus.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_silent_bus_times_out_a_short_snapshot_within_its_own_timeout() {
+    let dir = super::unique_temp_dir("cli-silent-bus");
+    let socket = dir.join("silent-bus");
+    let _silent = std::os::unix::net::UnixListener::bind(&socket).expect("bind the silent bus");
+    let started = std::time::Instant::now();
+    let output = super::binary()
+        .args(["snapshot", "--app", "Absent", "--timeout-ms", "1200"])
+        .env("AGENT_DESKTOP_HOME", &dir)
+        .env("XDG_RUNTIME_DIR", &dir)
+        .env(
+            "DBUS_SESSION_BUS_ADDRESS",
+            format!("unix:path={}", socket.display()),
+        )
+        .env_remove("AT_SPI_BUS_ADDRESS")
+        .env_remove("DISPLAY")
+        .env_remove("WAYLAND_DISPLAY")
+        .env_remove("HYPRLAND_INSTANCE_SIGNATURE")
+        .output()
+        .expect("snapshot runs against a silent bus");
+    let elapsed = started.elapsed();
+    let response: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(response["error"]["code"], "TIMEOUT", "{response}");
+    assert_eq!(
+        response["error"]["details"]["timeout_ms"], 1200,
+        "{response}"
+    );
+    assert!(
+        elapsed < std::time::Duration::from_millis(2_200),
+        "a 1200 ms snapshot must end within its timeout plus a second, took {elapsed:?}: {response}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
